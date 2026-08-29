@@ -32,11 +32,14 @@ require __DIR__ . '/app/views/partials/public-header.php';
                     <div class="contact-row"><i class="bi bi-whatsapp"></i>
                         <div><strong>WhatsApp</strong><br><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer"><?= e(support_phone()) ?></a></div>
                     </div>
+                    <div class="contact-row"><i class="bi bi-telephone"></i>
+                        <div><strong>Call support</strong><br><?php foreach (support_phones() as $phone): ?><a class="d-block" href="tel:<?= e(phone_href($phone)) ?>"><?= e($phone) ?></a><?php endforeach; ?></div>
+                    </div>
                     <div class="contact-row"><i class="bi bi-envelope"></i>
                         <div><strong>Email support</strong><br><a href="mailto:<?= e(support_email()) ?>"><?= e(support_email()) ?></a></div>
                     </div>
                     <div class="contact-row"><i class="bi bi-geo-alt"></i>
-                        <div><strong>Location</strong><br>Iyana Ilogbo, Ogun State, Nigeria</div>
+                        <div><strong>Location</strong><br><?= e(company_address()) ?></div>
                     </div>
                 </aside>
             </div>

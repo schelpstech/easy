@@ -55,8 +55,8 @@ try {
 
     $quoteReference = InquiryService::createQuote([
         'shipment_type' => 'Domestic',
-        'from_location' => 'Iyana Ilogbo, Ogun State',
-        'to_location' => 'Ikeja, Lagos State',
+        'from_location' => 'Shop 39, Stakeholder Park, International Airport, Ikeja, Lagos State',
+        'to_location' => 'Victoria Island, Lagos State',
         'weight_range' => '1kg - 5kg',
         'quantity' => 1,
         'delivery_type' => 'Standard Delivery',
@@ -74,8 +74,8 @@ try {
         'customer_name' => 'QA Customer',
         'customer_email' => 'customer-' . strtolower($suffix) . '@example.test',
         'customer_phone' => '+234 800 000 0000',
-        'origin' => 'Iyana Ilogbo, Ogun State',
-        'destination' => 'Ikeja, Lagos State',
+        'origin' => 'Shop 39, Stakeholder Park, International Airport, Ikeja, Lagos State',
+        'destination' => 'Victoria Island, Lagos State',
         'service_type' => 'Standard Delivery',
         'package_description' => 'Temporary QA parcel',
         'weight_kg' => 2.5,
@@ -96,7 +96,7 @@ try {
         'status' => 'received',
         'title' => 'Parcel received for processing',
         'description' => 'Easyway has received the parcel.',
-        'location' => 'Iyana Ilogbo, Ogun State',
+        'location' => 'Shop 39, Stakeholder Park, International Airport, Ikeja, Lagos State',
         'event_time' => date('Y-m-d H:i:s'),
         'is_public' => true,
     ], $staffId);

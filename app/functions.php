@@ -147,6 +147,33 @@ function support_phone(): string
     return (string) Config::get('SUPPORT_PHONE', '+234 903 113 4210');
 }
 
+function support_phone_secondary(): string
+{
+    return (string) Config::get('SUPPORT_PHONE_SECONDARY', '+234 808 713 7894');
+}
+
+/** @return list<string> */
+function support_phones(): array
+{
+    return array_values(array_unique(array_filter(
+        [support_phone(), support_phone_secondary()],
+        static fn (string $phone): bool => trim($phone) !== ''
+    )));
+}
+
+function phone_href(string $phone): string
+{
+    return (string) preg_replace('/[^\d+]+/', '', $phone);
+}
+
+function company_address(): string
+{
+    return (string) Config::get(
+        'COMPANY_ADDRESS',
+        'Shop 39, Stakeholder Park, International Airport, after International Airport Central Mosque, Ikeja, Lagos State, Nigeria'
+    );
+}
+
 function support_email(): string
 {
     return (string) Config::get('SUPPORT_EMAIL', 'support@easyway.ng');

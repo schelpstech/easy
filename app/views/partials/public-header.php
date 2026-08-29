@@ -23,9 +23,11 @@ $currentPage = basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <div class="stage1-topbar">
     <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <p class="mb-0"><i class="bi bi-geo-alt"></i> Iyana Ilogbo, Ogun State, Nigeria</p>
+        <p class="mb-0"><i class="bi bi-geo-alt"></i> <?= e(company_address()) ?></p>
         <div class="d-flex flex-wrap gap-3">
-            <a href="tel:<?= e(preg_replace('/\s+/', '', support_phone())) ?>"><i class="bi bi-telephone"></i> <?= e(support_phone()) ?></a>
+            <?php foreach (support_phones() as $phone): ?>
+                <a href="tel:<?= e(phone_href($phone)) ?>"><i class="bi bi-telephone"></i> <?= e($phone) ?></a>
+            <?php endforeach; ?>
             <a href="mailto:<?= e(support_email()) ?>"><i class="bi bi-envelope"></i> <?= e(support_email()) ?></a>
         </div>
     </div>

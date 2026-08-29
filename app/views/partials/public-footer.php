@@ -6,6 +6,7 @@
             <div class="col-lg-4">
                 <img class="stage1-footer-logo" src="<?= e(url('assets/img/easyway/logo.jpg')) ?>" alt="Easyway Logistics">
                 <p>Careful handling, clear communication and dependable delivery support for individuals and businesses.</p>
+                <p><i class="bi bi-geo-alt"></i> <?= e(company_address()) ?></p>
                 <a class="stage1-inline-link" href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i> Chat with our team</a>
             </div>
             <div class="col-6 col-lg-2">
@@ -28,7 +29,9 @@
                 <a href="<?= e(url('quote.php')) ?>">Request a quote</a>
                 <a href="<?= e(url('calculator.php')) ?>">Calculate a rate</a>
                 <a href="mailto:<?= e(support_email()) ?>"><?= e(support_email()) ?></a>
-                <a href="tel:<?= e(preg_replace('/\s+/', '', support_phone())) ?>"><?= e(support_phone()) ?></a>
+                <?php foreach (support_phones() as $phone): ?>
+                    <a href="tel:<?= e(phone_href($phone)) ?>"><?= e($phone) ?></a>
+                <?php endforeach; ?>
             </div>
         </div>
         <div class="stage1-footer-bottom">

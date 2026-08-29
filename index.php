@@ -376,7 +376,7 @@ $homeContactState = pull_form_state('contact');
                                 </div>
                                 <div class="contact-content">
                                     <p>Send Your Documents via Email</p>
-                                    <a href="mailto:support@easyway.ng">support@easyway.ng</a>
+                                    <a href="mailto:<?= e(support_email()) ?>"><?= e(support_email()) ?></a>
                                 </div>
                             </li>
 
@@ -390,7 +390,7 @@ $homeContactState = pull_form_state('contact');
                                 </div>
                                 <div class="contact-content">
                                     <p>24/7 Customer Support</p>
-                                    <a href="tel:+2349031134210">+234 903 113 4210</a>
+                                    <?php foreach (support_phones() as $phone): ?><a class="d-block" href="tel:<?= e(phone_href($phone)) ?>"><?= e($phone) ?></a><?php endforeach; ?>
                                 </div>
                             </li>
                         </ul>
@@ -1594,8 +1594,7 @@ $homeContactState = pull_form_state('contact');
                             <div class="logo-area">
                                 <a href="<?= e(url('index.php')) ?>"><img src="assets/img/easyway/logo.jpg" alt="Easyway Logistics"></a>
                             </div>
-                            <p>Easyway Logistics, Iyana Ilogbo, Ogun State, Nigeria. Fast & reliable delivery nationwide
-                                and abroad.</p>
+                            <p>Easyway Logistics, <?= e(company_address()) ?>. Fast &amp; reliable delivery nationwide and abroad.</p>
                             <ul class="social-list">
                                 <li><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="bx bxl-whatsapp"></i></a></li>
                             </ul>
@@ -1620,7 +1619,7 @@ $homeContactState = pull_form_state('contact');
                                     </div>
                                     <div class="content">
                                         <p>Call Us</p>
-                                        <a href="tel:<?= e(preg_replace('/\s+/', '', support_phone())) ?>"><?= e(support_phone()) ?></a>
+                                        <?php foreach (support_phones() as $phone): ?><a class="d-block" href="tel:<?= e(phone_href($phone)) ?>"><?= e($phone) ?></a><?php endforeach; ?>
                                     </div>
                                 </li>
                             </ul>

@@ -22,7 +22,7 @@ require __DIR__ . '/app/views/partials/public-header.php';
             <div class="col-lg-6">
                 <span class="section-kicker">Who we are</span>
                 <h2 class="section-heading">A delivery partner built around real customer needs.</h2>
-                <p class="section-lead">Easyway Logistics supports everyday deliveries, business distribution and international shipping enquiries from our base in Ogun State.</p>
+                <p class="section-lead">Easyway Logistics supports everyday deliveries, business distribution and international shipping enquiries from our base in Ikeja, Lagos State.</p>
                 <p>Our work is guided by three simple ideas: communicate honestly, handle every parcel responsibly and give customers useful information at every stage. Where a route requires a specialist courier or cargo partner, our team confirms availability and the correct documentation before accepting the shipment.</p>
                 <ul class="check-list mt-4">
                     <li><i class="bi bi-check-lg"></i><span>Clear shipment references and status updates</span></li>
