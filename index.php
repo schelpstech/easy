@@ -1,5 +1,13 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/app/bootstrap.php';
+$homeQuoteState = pull_form_state('quote');
+$homeContactState = pull_form_state('contact');
+?>
 <!doctype html>
-<html lang="en">
+<html lang="en" class="easyway-home-root">
 
 <head>
     <!-- Required meta tags -->
@@ -12,6 +20,12 @@
     <meta name="keywords"
         content="Easyway Logistics, courier, delivery, shipping, Nigeria, international delivery, logistics, parcel tracking, freight services">
     <meta name="author" content="Easyway Logistics">
+
+    <!-- Load the premium variable typefaces ahead of the application styles. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&amp;family=SUSE:wght@100..800&amp;display=swap">
 
     <!-- Bootstrap CSS -->
     <link href="assets/css/bootstrap.min.css" rel="stylesheet">
@@ -38,6 +52,7 @@
 
     <!-- Main Style -->
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/stage1.css">
 
     <!-- Title -->
     <title>Easyway Logistics – Reliable Delivery Within & Outside Nigeria</title>
@@ -47,7 +62,7 @@
 </head>
 
 
-<body class="tt-magic-cursor">
+<body class="tt-magic-cursor easyway-home">
 
     <div id="magic-cursor">
         <div id="ball"></div>
@@ -69,45 +84,35 @@
     <header class="header-area style-4">
         <div class="container d-flex flex-nowrap align-items-center justify-content-between">
             <div class="logo-and-menu-area">
-                <a href="index.html" class="header-logo">
-                    <img src="assets/img/easyway/logo.jpg" alt="">
+                <a href="<?= e(url('index.php')) ?>" class="header-logo">
+                    <img src="assets/img/easyway/logo.jpg" alt="Easyway Logistics">
                 </a>
                 <div class="main-menu">
                     <div class="mobile-logo-area d-xl-none d-flex align-items-center justify-content-between">
-                        <a href="index.html" class="mobile-logo-wrap">
-                            <img src="assets/img/easyway/logo.jpg" alt="">
+                        <a href="<?= e(url('index.php')) ?>" class="mobile-logo-wrap">
+                            <img src="assets/img/easyway/logo.jpg" alt="Easyway Logistics">
                         </a>
                         <div class="menu-close-btn">
                             <i class="bi bi-x"></i>
                         </div>
                     </div>
                     <ul class="menu-list">
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="<?= e(url('about.php')) ?>">About Us</a></li>
                         <li class="menu-item-has-children">
-                            <a href="#home">
-                                Home
-                            </a>
+                            <a href="<?= e(url('services.php')) ?>">Solutions</a>
+                            <i class="bi bi-plus dropdown-icon"></i>
+                            <ul class="sub-menu">
+                                <li><a href="<?= e(url('services.php')) ?>">Delivery Services</a></li>
+                                <li><a href="<?= e(url('destinations.php')) ?>">International Destinations</a></li>
+                                <li><a href="<?= e(url('cargo-services.php')) ?>">Cargo Services</a></li>
+                                <li><a href="<?= e(url('packaging-materials.php')) ?>">Packaging Materials</a></li>
+                                <li><a href="<?= e(url('calculator.php')) ?>">Shipping Calculator</a></li>
+                            </ul>
                         </li>
-                        <li class="menu-item-has-children">
-                            <a href="#about">
-                                About Us
-                            </a>
-                        </li>
-                        <li class="menu-item-has-children">
-                            <a href="#services" class="drop-down">
-                                Our Services
-                            </a>
-                        </li>
-                        <li class="menu-item-has-children">
-                            <a href="#quote" class="drop-down">
-                                Get Quote
-                            </a>
-                        </li>
-                        <li class="menu-item-has-children">
-                            <a href="#faq" class="drop-down">
-                                FAQ
-                            </a>
-                        </li>
-
+                        <li><a href="<?= e(url('tracking.php')) ?>">Tracking</a></li>
+                        <li><a href="<?= e(url('quote.php')) ?>">Get Quote</a></li>
+                        <li><a href="<?= e(url('contact.php')) ?>">Contact</a></li>
                     </ul>
                     <div class="language-area d-xl-none d-flex">
                         <div class="language-btn">
@@ -136,12 +141,12 @@
                             <li><a href="#">English</a></li>
                         </ul>
                     </div>
-                    <a class="primary-btn2 btn-hover d-md-none d-flex " href="#">
+                    <a class="primary-btn2 btn-hover d-md-none d-flex " href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer">
                         <svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
                             <path fill-rule="evenodd" clip-rule="evenodd"
                                 d="M6.94519 6.64398L1.42283 5.13832C0.702381 4.94189 0.68943 4.60244 1.40232 4.3774L12.3969 0.905214C12.7401 0.796742 12.93 0.989941 12.8221 1.33101L9.35047 12.325C9.12651 13.0341 8.78706 13.0298 8.58954 12.3045L7.08334 6.78267C7.07314 6.75008 7.0552 6.72043 7.03104 6.69628C7.00689 6.67213 6.97779 6.65418 6.94519 6.64398Z" />
                         </svg>
-                        Earn with Onetrack
+                        Chat on WhatsApp
                         <span></span>
                     </a>
                 </div>
@@ -158,7 +163,7 @@
                             </svg>
                         </div>
                     </div>
-                    <a href="login-page.html" class="login-btn">
+                    <a href="<?= e(url(App\CustomerAuth::check() ? 'customer/index.php' : 'customer/login.php')) ?>" class="login-btn" aria-label="Customer account">
                         <svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
                             <path
                                 d="M9.10982 6.49154C10.0056 5.83822 10.589 4.78089 10.589 3.58974C10.589 1.61036 8.97862 0 6.99924 0C5.01985 0 3.4095 1.61036 3.4095 3.58974C3.4095 4.78089 3.99282 5.83822 4.88866 6.49154C2.66178 7.34371 1.07617 9.5028 1.07617 12.0256C1.07617 13.1143 1.96186 14 3.05053 14H10.9479C12.0366 14 12.9223 13.1143 12.9223 12.0256C12.9223 9.5028 11.3367 7.34371 9.10982 6.49154ZM4.48643 3.58974C4.48643 2.20418 5.61368 1.07693 6.99924 1.07693C8.3848 1.07693 9.51205 2.20418 9.51205 3.58974C9.51205 4.9753 8.3848 6.10258 6.99924 6.10258C5.61368 6.10258 4.48643 4.9753 4.48643 3.58974ZM10.9479 12.9231H3.05053C2.55569 12.9231 2.15311 12.5205 2.15311 12.0256C2.15311 9.35342 4.32704 7.17946 6.99927 7.17946C9.67149 7.17946 11.8454 9.35339 11.8454 12.0256C11.8454 12.5205 11.4428 12.9231 10.9479 12.9231Z" />
@@ -235,19 +240,17 @@
                             <div class="swiper-wrapper">
                                 <div class="swiper-slide">
                                     <div class="single-slide">
-                                        <p>Up to <strong>20% discount</strong> till Christmas for international
-                                            shipments!</p>
+                                        <p>Request a tailored quote for <strong>international shipments</strong>.</p>
                                     </div>
                                 </div>
                                 <div class="swiper-slide">
                                     <div class="single-slide">
-                                        <p>Enjoy <strong>Free Delivery</strong> on your first local shipment – Limited
-                                            Time Offer!</p>
+                                        <p>Clear booking references and <strong>visible delivery milestones</strong>.</p>
                                     </div>
                                 </div>
                                 <div class="swiper-slide">
                                     <div class="single-slide">
-                                        <p>Fast, Secure & Affordable Delivery Across <strong>150+ Countries</strong>.
+                                        <p>International delivery enquiries to <strong>supported destinations</strong>.
                                         </p>
                                     </div>
                                 </div>
@@ -258,18 +261,20 @@
 
                 <!-- CTA Button -->
                 <div class="col-lg-3 col-md-4 d-flex align-items-center justify-content-end">
-                    <a class="primary-btn2 d-md-flex d-none btn-hover" href="partner.html">
+                    <a class="primary-btn2 d-md-flex d-none btn-hover" href="<?= e(url(App\CustomerAuth::check() ? 'customer/book.php' : 'customer/register.php')) ?>">
                         <svg width="14" height="14" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
                             <path fill-rule="evenodd" clip-rule="evenodd"
                                 d="M6.94519 6.64398L1.42283 5.13832C0.702381 4.94189 0.68943 4.60244 1.40232 4.3774L12.3969 0.905214C12.7401 0.796742 12.93 0.989941 12.8221 1.33101L9.35047 12.325C9.12651 13.0341 8.78706 13.0298 8.58954 12.3045L7.08334 6.78267C7.07314 6.75008 7.0552 6.72043 7.03104 6.69628C7.00689 6.67213 6.97779 6.65418 6.94519 6.64398Z" />
                         </svg>
-                        Partner with Easyway
+                        Book with Easyway
                         <span></span>
                     </a>
                 </div>
             </div>
         </div>
     </div>
+
+    <?= flash_markup() ?>
 
     <!-- ===============================
      EASYWAY LOGISTICS - HERO SECTION
@@ -286,8 +291,8 @@
                                     Fast. Reliable. Global Courier Service.
                                 </h1>
                                 <p class="wow fadeInUp" data-wow-delay="0.4s">
-                                    Delivering parcels across Nigeria and beyond with ease — starting from as low as
-                                    <strong>₦1,500</strong>
+                                    Delivering parcels across Nigeria and beyond with clear support from booking to
+                                    final delivery.
                                 </p>
                             </div>
 
@@ -298,18 +303,14 @@
                                     fill-opacity="0.15" />
                             </svg>
 
-                            <!-- TrustPilot Rating -->
-                            <a href="https://www.trustpilot.com/review/easywaylogistics.com"
-                                class="trustpilot-rating-area wow fadeInUp" data-wow-delay="0.6s">
-                                <strong>4.5</strong>
+                            <div class="trustpilot-rating-area wow fadeInUp" data-wow-delay="0.6s">
+                                <strong><i class="bi bi-shield-check"></i></strong>
                                 <div class="trustpilot-rating">
-                                    <img src="assets/img/home4/icon/trustpilot-logo.png" alt="TrustPilot Logo">
                                     <div class="rating-area">
-                                        <img src="assets/img/home3/icon/trustpilot-star.svg" alt="Trust Rating">
-                                        <span>(2K+ reviews)</span>
+                                        <span>Secure references and verified tracking milestones</span>
                                     </div>
                                 </div>
-                            </a>
+                            </div>
                         </div>
                     </div>
 
@@ -338,10 +339,10 @@
                     <div class="col-xl-5 col-lg-7 col-md-7">
                         <div class="contact-tracking-area">
                             <h5>Track Your Parcel</h5>
-                            <form class="email-area" action="track.php" method="GET">
+                            <form class="email-area" action="<?= e(url('tracking.php')) ?>" method="get">
                                 <div class="form-inner">
                                     <input type="text" name="tracking_id" placeholder="Enter Your Tracking Number"
-                                        required>
+                                        maxlength="19" autocomplete="off" data-tracking-input required>
                                     <button class="primary-btn2 two black-bg btn-hover" type="submit">
                                         Track & Trace
                                         <svg width="10" height="10" viewBox="0 0 10 10"
@@ -355,7 +356,7 @@
                             </form>
                             <p>
                                 Having trouble tracking your parcel?
-                                <a href="contact.html">Contact our support team</a> for quick assistance.
+                                <a href="<?= e(url('contact.php')) ?>">Contact our support team</a> for quick assistance.
                             </p>
                         </div>
                     </div>
@@ -629,7 +630,7 @@
                     <div class="col-lg-12 d-flex align-items-center justify-content-center">
                         <div class="tracking-btn mt-60">
                             <p>Connecting the world, one delivery at a time!</p>
-                            <a class="track-btn" href="get-in-touch.html">
+                            <a class="track-btn" href="<?= e(url('quote.php')) ?>">
                                 Request a Quote
                                 <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                                     <path
@@ -650,154 +651,156 @@
     <div class="home2-company-banner-img  three">
     </div>
     <!-- Home4 Image Area Section End -->
-<section id="track">
-    <!-- Calculate Shipping Area Start -->
-    <div id="quote" class="calculate-shipping-area mb-120 wow animate fadeInUp" data-wow-delay="200ms"
-        data-wow-duration="1500ms">
-        <div class="container">
-            <div class="row align-items-center justify-content-center">
-                <div class="col-lg-10">
-                    <div class="calculate-shipping-area-wrapper">
-                        <div class="section-title text-center">
-                            <h2><span>Get </span>Shipping / Delivery Quote</h2>
-                        </div>
-                        <svg class="line" height="6" viewBox="0 0 956 6" xmlns="http://www.w3.org/2000/svg">
-                            <path
-                                d="M5 2.5L0 0.113249V5.88675L5 3.5V2.5ZM951 3.5L956 5.88675V0.113249L951 2.5V3.5ZM4.5 3V3.5H951.5V3V2.5H4.5V3Z">
-                            </path>
-                        </svg>
-
-                        <form id="quoteRequestForm" method="post" action="send-quote.php">
-                            <div class="check-area">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="shipment_type_option"
-                                        id="domestic" value="Domestic" checked>
-                                    <label class="form-check-label" for="domestic">
-                                        Send Within Nigeria
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="shipment_type_option"
-                                        id="international" value="International">
-                                    <label class="form-check-label" for="international">
-                                        Send Outside Nigeria
-                                    </label>
-                                </div>
+    <section id="quote-section">
+        <!-- Calculate Shipping Area Start -->
+        <div id="quote" class="calculate-shipping-area mb-120 wow animate fadeInUp" data-wow-delay="200ms"
+            data-wow-duration="1500ms">
+            <div class="container">
+                <div class="row align-items-center justify-content-center">
+                    <div class="col-lg-10">
+                        <div class="calculate-shipping-area-wrapper">
+                            <div class="section-title text-center">
+                                <h2><span>Get </span>Shipping / Delivery Quote</h2>
                             </div>
+                            <svg class="line" height="6" viewBox="0 0 956 6" xmlns="http://www.w3.org/2000/svg">
+                                <path
+                                    d="M5 2.5L0 0.113249V5.88675L5 3.5V2.5ZM951 3.5L956 5.88675V0.113249L951 2.5V3.5ZM4.5 3V3.5H951.5V3V2.5H4.5V3Z">
+                                </path>
+                            </svg>
 
-                            <div class="row g-4 mb-50">
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>From <span>(Pickup Location)</span></label>
-                                        <input type="text" name="from_location" placeholder="e.g., Lagos, Nigeria"
-                                            required>
+                            <form id="quoteRequestForm" method="post" action="<?= e(url('controller/router.php?action=quote.submit')) ?>">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="_return" value="index.php">
+                                <div class="honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+                                <div class="check-area">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="shipment_type_option"
+                                            id="domestic" value="Domestic" <?= (($homeQuoteState['data']['shipment_type'] ?? 'Domestic') === 'Domestic') ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="domestic">
+                                            Send Within Nigeria
+                                        </label>
                                     </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>To <span>(Delivery Destination)</span></label>
-                                        <input type="text" name="to_location" placeholder="e.g., Abuja, Nigeria"
-                                            required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>Weight <span>(in Kilograms)</span></label>
-                                        <select name="weight_range" required>
-                                            <option value="">Select Weight Range</option>
-                                            <option value="0-2">0 - 2 Kg</option>
-                                            <option value="2-5">2 - 5 Kg</option>
-                                            <option value="5-10">5 - 10 Kg</option>
-                                            <option value="10-20">10 - 20 Kg</option>
-                                            <option value="20+">20 Kg & Above</option>
-                                        </select>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="shipment_type_option"
+                                            id="international" value="International" <?= (($homeQuoteState['data']['shipment_type'] ?? '') === 'International') ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="international">
+                                            Send Outside Nigeria
+                                        </label>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="form-inner">
-                                        <label>Total Quantity</label>
-                                        <input type="text" name="quantity" placeholder="e.g., 22 Units" required>
+                                <div class="row g-4 mb-50">
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>From <span>(Pickup Location)</span></label>
+                                            <input type="text" name="from_location" value="<?= form_value($homeQuoteState, 'from_location') ?>" placeholder="e.g., Lagos, Nigeria"
+                                                required>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-inner">
-                                        <label>Delivery Type</label>
-                                        <select name="delivery_type" required>
-                                            <option value="">Select Type</option>
-                                            <option>Air Freight</option>
-                                            <option>Road Freight</option>
-                                            <option>Door-to-Door Delivery</option>
-                                        </select>
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>To <span>(Delivery Destination)</span></label>
+                                            <input type="text" name="to_location" value="<?= form_value($homeQuoteState, 'to_location') ?>" placeholder="e.g., Abuja, Nigeria"
+                                                required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>Weight <span>(in Kilograms)</span></label>
+                                            <select name="weight_range" required>
+                                                <option value="">Select Weight Range</option>
+                                                <?php foreach (['Below 1kg', '1kg - 5kg', '6kg - 15kg', '16kg - 30kg', 'Above 30kg'] as $option): ?>
+                                                    <option value="<?= e($option) ?>" <?= (($homeQuoteState['data']['weight_range'] ?? '') === $option) ? 'selected' : '' ?>><?= e($option) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="form-inner">
+                                            <label>Total Quantity</label>
+                                            <input type="number" min="1" max="10000" name="quantity" value="<?= form_value($homeQuoteState, 'quantity', '1') ?>" placeholder="e.g., 2" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-inner">
+                                            <label>Delivery Type</label>
+                                            <select name="delivery_type" required>
+                                                <option value="">Select Type</option>
+                                                <?php foreach (['Standard Delivery', 'Express Delivery', 'Same-Day Delivery', 'Cargo / Freight'] as $option): ?>
+                                                    <option value="<?= e($option) ?>" <?= (($homeQuoteState['data']['delivery_type'] ?? '') === $option) ? 'selected' : '' ?>><?= e($option) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contact Information Section -->
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>Full Name</label>
+                                            <input type="text" name="fullname" value="<?= form_value($homeQuoteState, 'full_name') ?>" placeholder="Your Full Name" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>Email Address</label>
+                                            <input type="email" name="email" value="<?= form_value($homeQuoteState, 'email') ?>" placeholder="Your Email Address" required>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="form-inner">
+                                            <label>Phone Number</label>
+                                            <input type="tel" name="phone" value="<?= form_value($homeQuoteState, 'phone') ?>" placeholder="Your Phone Number" required>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <!-- Contact Information Section -->
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>Full Name</label>
-                                        <input type="text" name="fullname" placeholder="Your Full Name" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>Email Address</label>
-                                        <input type="email" name="email" placeholder="Your Email Address" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="form-inner">
-                                        <label>Phone Number</label>
-                                        <input type="tel" name="phone" placeholder="Your Phone Number" required>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="btn-and-contact-area">
-                                <button class="primary-btn2 black-bg btn-hover" type="submit">
-                                    Request Quote
-                                    <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
-                                        <g>
-                                            <path
-                                                d="M5.83333 4.16667V0H4.16667V4.16667H0V5.83333H4.16667V10H5.83333V5.83333H10V4.16667H5.83333Z">
-                                            </path>
-                                        </g>
-                                    </svg>
-                                    <span></span>
-                                </button>
-                                <div class="contact">
-                                    <div class="icon">
-                                        <svg width="18" height="18" viewBox="0 0 18 18"
+                                <div class="btn-and-contact-area">
+                                    <button class="primary-btn2 black-bg btn-hover" type="submit">
+                                        Request Quote
+                                        <svg width="10" height="10" viewBox="0 0 10 10"
                                             xmlns="http://www.w3.org/2000/svg">
                                             <g>
                                                 <path
-                                                    d="M17.5101 13.2102L14.9981 10.6982C14.101 9.8011 12.5759 10.16 12.217 11.3262C11.9479 12.1337 11.0508 12.5822 10.2434 12.4028C8.44911 11.9542 6.02686 9.62168 5.5783 7.73771C5.30916 6.93026 5.84744 6.03314 6.65485 5.76404C7.82112 5.40519 8.17997 3.88007 7.28284 2.98294L4.77089 0.470991C4.05319 -0.156997 2.97663 -0.156997 2.34864 0.470991L0.644104 2.17553C-1.06044 3.96978 0.82353 8.72455 5.04003 12.941C9.25652 17.1575 14.0113 19.1313 15.8055 17.337L17.5101 15.6324C18.1381 14.9147 18.1381 13.8382 17.5101 13.2102Z">
+                                                    d="M5.83333 4.16667V0H4.16667V4.16667H0V5.83333H4.16667V10H5.83333V5.83333H10V4.16667H5.83333Z">
                                                 </path>
                                             </g>
                                         </svg>
-                                    </div>
-                                    <div class="contact-content">
-                                        <p>Need Help?</p>
-                                        <a href="tel:+199656786534">+1 (99) 656 786 534</a>
+                                        <span></span>
+                                    </button>
+                                    <div class="contact">
+                                        <div class="icon">
+                                            <svg width="18" height="18" viewBox="0 0 18 18"
+                                                xmlns="http://www.w3.org/2000/svg">
+                                                <g>
+                                                    <path
+                                                        d="M17.5101 13.2102L14.9981 10.6982C14.101 9.8011 12.5759 10.16 12.217 11.3262C11.9479 12.1337 11.0508 12.5822 10.2434 12.4028C8.44911 11.9542 6.02686 9.62168 5.5783 7.73771C5.30916 6.93026 5.84744 6.03314 6.65485 5.76404C7.82112 5.40519 8.17997 3.88007 7.28284 2.98294L4.77089 0.470991C4.05319 -0.156997 2.97663 -0.156997 2.34864 0.470991L0.644104 2.17553C-1.06044 3.96978 0.82353 8.72455 5.04003 12.941C9.25652 17.1575 14.0113 19.1313 15.8055 17.337L17.5101 15.6324C18.1381 14.9147 18.1381 13.8382 17.5101 13.2102Z">
+                                                    </path>
+                                                </g>
+                                            </svg>
+                                        </div>
+                                        <div class="contact-content">
+                                            <p>Need Help?</p>
+                                            <a href="tel:<?= e(preg_replace('/\s+/', '', support_phone())) ?>"><?= e(support_phone()) ?></a>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </form>
+                            </form>
 
-                        <p><strong>Note:</strong> <span>VAT (7.5%)</span> is included in all local and international
-                            quotes.</p>
+                            <p><strong>Note:</strong> Final pricing is confirmed after our team reviews the route, weight
+                                and handling requirements.</p>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
     <!-- Calculate Shipping Area End -->
 
 
     <!-- Home4 Service Section Start -->
-    <div class="home4-service-section mb-120">
+    <div id="services" class="home4-service-section mb-120">
         <div class="container">
             <div class="swiper home4-service-slider">
                 <div class="swiper-wrapper">
@@ -819,7 +822,7 @@
                                     </svg>
                                 </div>
                                 <h2>
-                                    <a href="solution-details.html">Pick up and drop off</a>
+                                    <a href="<?= e(url('services.php')) ?>">Pick up and drop off</a>
                                 </h2>
                                 <p>Convenient and reliable pickup and drop-off services tailored to your specific time
                                     schedule.</p>
@@ -846,7 +849,7 @@
                                     </svg>
                                 </div>
                                 <h2>
-                                    <a href="solution-details.html">Home delivery services</a>
+                                    <a href="<?= e(url('services.php')) ?>">Home delivery services</a>
                                 </h2>
                                 <p>Fast, secure, and professional delivery of parcels and goods directly to your
                                     doorstep.</p>
@@ -867,7 +870,7 @@
                                     </svg>
                                 </div>
                                 <h2>
-                                    <a href="solution-details.html">Personal errands</a>
+                                    <a href="<?= e(url('services.php')) ?>">Personal errands</a>
                                 </h2>
                                 <p>Let us handle your daily tasks, shopping, and other errands so you can save time.</p>
                             </div>
@@ -887,7 +890,7 @@
                                     </svg>
                                 </div>
                                 <h2>
-                                    <a href="solution-details.html">Intra state delivery</a>
+                                    <a href="<?= e(url('services.php')) ?>">Intra state delivery</a>
                                 </h2>
                                 <p>Seamless and affordable delivery solutions within the state for businesses and
                                     individuals.</p>
@@ -914,7 +917,7 @@
                                     </svg>
                                 </div>
                                 <h2>
-                                    <a href="solution-details.html">Inter state delivery</a>
+                                    <a href="<?= e(url('services.php')) ?>">Inter state delivery</a>
                                 </h2>
                                 <p>Efficient long-distance shipping services across state lines, ensuring your cargo
                                     arrives on time.</p>
@@ -1189,18 +1192,16 @@
                         <li><img src="assets/img/home3/counter-people-img3.png" alt=""></li>
                         <li><img src="assets/img/home3/counter-people-img4.png" alt=""></li>
                     </ul>
-                    <h6> <strong><span class="counter">25</span>k+</strong> Deliveries Completed Nationwide.</h6>
+                    <h6><strong>Customer-focused</strong> local, interstate and international delivery support.</h6>
                 </div>
-                <a href="http://trustpilot.com/" class="trustpilot-rating-area">
-                    <strong>4.5</strong>
+                <div class="trustpilot-rating-area">
+                    <strong><i class="bi bi-chat-square-heart"></i></strong>
                     <div class="trustpilot-rating">
-                        <img src="assets/img/home3/icon/trustpilot-logo.svg" alt="">
                         <div class="rating-area">
-                            <img src="assets/img/home3/icon/trustpilot-star.svg" alt="">
-                            <span>(2K reviews)</span>
+                            <span>What customers value about Easyway</span>
                         </div>
                     </div>
-                </a>
+                </div>
             </div>
 
             <svg class="line" height="6" viewBox="0 0 1320 6" xmlns="http://www.w3.org/2000/svg">
@@ -1318,8 +1319,8 @@
                 </div>
             </div>
 
-            <a href="#" class="reviews-btn">
-                View All Reviews
+            <a href="<?= e(url('contact.php')) ?>" class="reviews-btn">
+                Talk to our team
                 <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                     <path d="M1 9L9 1M9 1C7.22222 1.33333 3.33333 2 1 1M9 1C8.66667 2.66667 8 6.33333 9 9"
                         stroke-width="1.5" stroke-linecap="round" />
@@ -1333,10 +1334,10 @@
     <!-- Home4 Img Section Start -->
     <div class="home2-company-banner-img five mb-120">
         <div class="container">
-            <span>We’ve delivered over 1000 items.</span>
+            <span>Clear support from booking to delivery.</span>
             <div class="content wow animate fadeInDown" data-wow-delay="200ms" data-wow-duration="1500ms">
                 <h2>Fast. Reliable.Trackable Deliveries</h2>
-                <a class="primary-btn2 btn-hover" href="#">
+                <a class="primary-btn2 btn-hover" href="<?= e(url('quote.php')) ?>">
                     Start Your Journey
                     <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                         <g>
@@ -1353,7 +1354,7 @@
     <!-- Home4 Img Section End -->
 
     <!-- home4 Faq Section Start -->
-    <div class="home4-faq-section mb-120">
+    <div id="faq" class="home4-faq-section mb-120">
         <div class="container">
             <div class="row justify-content-center mb-65 wow animate fadeInDown" data-wow-delay="200ms"
                 data-wow-duration="1500ms">
@@ -1489,7 +1490,7 @@
 
                     <div class="button-area mt-35 d-flex justify-content-end wow animate fadeInUp"
                         data-wow-delay="200ms" data-wow-duration="1500ms">
-                        <a class="enqiry-btn" href="get-in-touch.html">
+                        <a class="enqiry-btn" href="<?= e(url('contact.php')) ?>">
                             Drop Your Question
                             <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M1 9L9 1M9 1C7.22222 1.33333 3.33333 2 1 1M9 1C8.66667 2.66667 8 6.33333 9 9"
@@ -1506,41 +1507,45 @@
     <!-- home4 Faq Section End -->
 
     <!-- Home4 Contact Section Start -->
-    <div class="home2-contact-section two wow animate fadeInDown" data-wow-delay="200ms" data-wow-duration="1500ms">
+    <div id="contact" class="home2-contact-section two wow animate fadeInDown" data-wow-delay="200ms" data-wow-duration="1500ms">
         <div class=" container">
             <div class="row justify-content-end">
                 <div class="col-lg-6">
                     <div class="contact-form-wrapper">
-                        <form>
+                        <form method="post" action="<?= e(url('controller/router.php?action=contact.submit')) ?>">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="_return" value="index.php">
+                            <div class="honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <div class="form-inner">
                                         <label>Full Name</label>
-                                        <input type="text">
+                                        <input type="text" name="full_name" value="<?= form_value($homeContactState, 'full_name') ?>" required>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-inner">
                                         <label>Company Name</label>
-                                        <input type="text">
+                                        <input type="text" name="company_name" value="<?= form_value($homeContactState, 'company_name') ?>">
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-inner">
                                         <label>Your Email *</label>
-                                        <input type="text">
+                                        <input type="email" name="email" value="<?= form_value($homeContactState, 'email') ?>" required>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-inner">
                                         <label>Phone Number</label>
-                                        <input type="text">
+                                        <input type="tel" name="phone" value="<?= form_value($homeContactState, 'phone') ?>">
                                     </div>
                                 </div>
                                 <div class="col-md-12">
                                     <div class="form-inner">
                                         <label>Message</label>
-                                        <textarea></textarea>
+                                        <input type="hidden" name="subject" value="Callback request">
+                                        <textarea name="message" required><?= form_value($homeContactState, 'message') ?></textarea>
                                     </div>
                                 </div>
                                 <div class="col-md-12">
@@ -1555,18 +1560,18 @@
                                     </div>
                                 </div>
                             </div>
+                            <button class="primary-btn2 btn-hover" type="submit">
+                                Request Callback
+                                <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
+                                    <g>
+                                        <path
+                                            d="M5.83333 4.16667V0H4.16667V4.16667H0V5.83333H4.16667V10H5.83333V5.83333H10V4.16667H5.83333Z">
+                                        </path>
+                                    </g>
+                                </svg>
+                                <span></span>
+                            </button>
                         </form>
-                        <button class="primary-btn2 btn-hover" type="submit">
-                            Request Callback
-                            <svg width="10" height="10" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
-                                <g>
-                                    <path
-                                        d="M5.83333 4.16667V0H4.16667V4.16667H0V5.83333H4.16667V10H5.83333V5.83333H10V4.16667H5.83333Z">
-                                    </path>
-                                </g>
-                            </svg>
-                            <span></span>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -1587,15 +1592,12 @@
                     <div class="col-lg-4">
                         <div class="footer-logo-and-social">
                             <div class="logo-area">
-                                <a href="#"><img src="assets/img/home1/Footer-logo-h1.svg" alt=""></a>
+                                <a href="<?= e(url('index.php')) ?>"><img src="assets/img/easyway/logo.jpg" alt="Easyway Logistics"></a>
                             </div>
                             <p>Easyway Logistics, Iyana Ilogbo, Ogun State, Nigeria. Fast & reliable delivery nationwide
                                 and abroad.</p>
                             <ul class="social-list">
-                                <li><a href="#"><i class="bx bxl-facebook"></i></a></li>
-                                <li><a href="#"><i class="bx bxl-linkedin"></i></a></li>
-                                <li><a href="#"><i class="bx bxl-youtube"></i></a></li>
-                                <li><a href="#"><i class="bx bxl-instagram-alt"></i></a></li>
+                                <li><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="bx bxl-whatsapp"></i></a></li>
                             </ul>
                         </div>
                     </div>
@@ -1609,7 +1611,7 @@
                                     </div>
                                     <div class="content">
                                         <p>Email Support</p>
-                                        <a href="mailto:info@easywaylogistics.com">info@easywaylogistics.com</a>
+                                        <a href="mailto:<?= e(support_email()) ?>"><?= e(support_email()) ?></a>
                                     </div>
                                 </li>
                                 <li>
@@ -1618,7 +1620,7 @@
                                     </div>
                                     <div class="content">
                                         <p>Call Us</p>
-                                        <a href="tel:+2348100000000">+234 810 000 0000</a>
+                                        <a href="tel:<?= e(preg_replace('/\s+/', '', support_phone())) ?>"><?= e(support_phone()) ?></a>
                                     </div>
                                 </li>
                             </ul>
@@ -1634,12 +1636,14 @@
                     <div class="col-xl-4 col-lg-3 col-md-4 col-sm-6">
                         <div class="footer-widget">
                             <div class="widget-title">
-                                <h3>Download App</h3>
+                                <h3>Quick Actions</h3>
                             </div>
-                            <div class="store">
-                                <a href="#"><img src="assets/img/home1/icon/play-store.svg" alt="Play-store"></a>
-                                <a href="#"><img src="assets/img/home1/icon/apple-store.svg" alt="apple-store"></a>
-                            </div>
+                            <ul class="widget-list">
+                                <li><a href="<?= e(url('tracking.php')) ?>">Track Shipment</a></li>
+                                <li><a href="<?= e(url('quote.php')) ?>">Get a Quote</a></li>
+                                <li><a href="<?= e(url('calculator.php')) ?>">Calculate a Rate</a></li>
+                                <li><a href="<?= e(url(App\CustomerAuth::check() ? 'customer/index.php' : 'customer/login.php')) ?>">Customer Account</a></li>
+                            </ul>
                         </div>
                     </div>
 
@@ -1650,11 +1654,11 @@
                                 <h3>Company</h3>
                             </div>
                             <ul class="widget-list">
-                                <li><a href="#">About Us</a></li>
-                                <li><a href="#">Meet Our Team</a></li>
-                                <li><a href="#">News & Updates</a></li>
-                                <li><a href="#">Careers</a></li>
-                                <li><a href="#">Our Policies</a></li>
+                                <li><a href="<?= e(url('about.php')) ?>">About Us</a></li>
+                                <li><a href="<?= e(url('services.php')) ?>">Delivery Services</a></li>
+                                <li><a href="<?= e(url('destinations.php')) ?>">International Destinations</a></li>
+                                <li><a href="<?= e(url('contact.php')) ?>">Contact Us</a></li>
+                                <li><a href="<?= e(url('staff/login.php')) ?>">Staff Portal</a></li>
                             </ul>
                         </div>
                     </div>
@@ -1665,11 +1669,11 @@
                                 <h3>Services</h3>
                             </div>
                             <ul class="widget-list">
-                                <li><a href="#">Pick-up & Drop-off</a></li>
-                                <li><a href="#">Home Delivery Services</a></li>
-                                <li><a href="#">Personal Errand Services</a></li>
-                                <li><a href="#">Intra-State Delivery</a></li>
-                                <li><a href="#">Inter-State Delivery</a></li>
+                                <li><a href="<?= e(url('services.php')) ?>">Pick-up & Drop-off</a></li>
+                                <li><a href="<?= e(url('services.php')) ?>">Home Delivery Services</a></li>
+                                <li><a href="<?= e(url('services.php')) ?>">Personal Errand Services</a></li>
+                                <li><a href="<?= e(url('cargo-services.php')) ?>">Cargo Services</a></li>
+                                <li><a href="<?= e(url('packaging-materials.php')) ?>">Packaging Materials</a></li>
                             </ul>
                         </div>
                     </div>
@@ -1681,11 +1685,10 @@
                                 <h3>Support</h3>
                             </div>
                             <ul class="widget-list">
-                                <li><a href="get-in-touch.html">Request a Quote</a></li>
-                                <li><a href="#">Terms & Conditions</a></li>
-                                <li><a href="#">Refund Policy</a></li>
-                                <li><a href="#">Offers & Discounts</a></li>
-                                <li><a href="#">Sitemap</a></li>
+                                <li><a href="<?= e(url('quote.php')) ?>">Request a Quote</a></li>
+                                <li><a href="<?= e(url('tracking.php')) ?>">Track Shipment</a></li>
+                                <li><a href="<?= e(url('contact.php')) ?>">Contact Support</a></li>
+                                <li><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
                             </ul>
                         </div>
                     </div>
@@ -1696,7 +1699,7 @@
 
         <div class="footer-bottom">
             <div class="container">
-                <p>© 2025 Easyway Logistics. All Rights Reserved.</p>
+                <p>© <?= date('Y') ?> Easyway Logistics. All Rights Reserved.</p>
             </div>
         </div>
     </footer>
@@ -1704,7 +1707,6 @@
     <!-- Footer Section End -->
 
     <!--  Main jQuery  -->
-    <script data-cfasync="false" src="../../../cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script>
     <script src="assets/js/jquery-3.7.1.min.js"></script>
     <script src="assets/js/jquery-ui.js"></script>
     <script src="assets/js/moment.min.js"></script>
@@ -1731,11 +1733,8 @@
     <!-- Custom JS -->
     <script src="assets/js/select-dropdown.js"></script>
     <script src="assets/js/custom.js"></script>
-    <script defer
-        src="https://static.cloudflareinsights.com/beacon.min.js/vcd15cbe7772f49c399c6a5babf22c1241717689176015"
-        integrity="sha512-ZpsOmlRQV6y907TI0dKBHq9Md29nnaEIPlkf84rnaERnq6zvWvPUqr2ft8M1aS28oN72PdrCzSjY4U6VaAw1EQ=="
-        data-cf-beacon='{"version":"2024.11.0","token":"70834e4b23964a2eaf7cf4ec0e5e9a84","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}'
-        crossorigin="anonymous"></script>
+    <script src="assets/js/stage1.js"></script>
+    <a class="whatsapp-float" href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer" aria-label="Chat with Easyway Logistics on WhatsApp"><i class="bi bi-whatsapp"></i><span>WhatsApp</span></a>
 </body>
 
 </html>

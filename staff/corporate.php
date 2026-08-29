@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/app/bootstrap.php';
+
+use App\Auth;
+use App\CorporateService;
+use App\Database;
+
+Auth::requireRole(['admin', 'dispatcher']);
+$accounts = CorporateService::all();
+$accountId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT);
+$account = $accountId === false ? null : CorporateService::find((int) $accountId);
+$members = $account ? CorporateService::members((int) $account['id']) : [];
+$ledger = $account ? CorporateService::ledger((int) $account['id']) : [];
+$staff = Database::connection()->query('SELECT id, full_name FROM staff_users WHERE status = "active" AND role IN ("admin","dispatcher") ORDER BY full_name')->fetchAll();
+$staffTitle = 'Corporate accounts';
+require __DIR__ . '/_header.php';
+?>
+<div class="row g-4 mb-4"><div class="col-xl-8"><section class="staff-card"><h2 class="h4 mb-3">Account portfolio</h2><div class="table-responsive"><table class="table staff-table"><thead><tr><th>Account</th><th>Terms</th><th>Outstanding</th><th>Available credit</th></tr></thead><tbody>
+<?php if ($accounts === []): ?><tr><td colspan="4" class="text-center text-muted py-4">No corporate accounts yet.</td></tr><?php endif; ?>
+<?php foreach ($accounts as $row): $available = (float) $row['credit_limit'] - (float) $row['outstanding']; ?><tr><td><a href="<?= e(url('staff/corporate.php?id=' . $row['id'])) ?>"><strong><?= e($row['company_name']) ?></strong></a><br><small><?= e($row['account_number']) ?> · <?= e($row['member_count']) ?> members</small></td><td><?= e($row['payment_terms_days']) ?> days</td><td><?= e($row['currency']) ?> <?= e(number_format((float) $row['outstanding'], 2)) ?></td><td><?= e($row['currency']) ?> <?= e(number_format($available, 2)) ?></td></tr><?php endforeach; ?>
+</tbody></table></div></section></div>
+<div class="col-xl-4"><?php if ((Auth::user()['role'] ?? '') === 'admin'): ?><section class="staff-card"><h2 class="h4 mb-3">New corporate account</h2><form class="staff-form" method="post" action="<?= e(url('controller/router.php?action=staff.corporate.create')) ?>"><?= csrf_field() ?>
+<div class="mb-3"><label>Company name *</label><input class="form-control" name="company_name" required></div><div class="mb-3"><label>Billing email *</label><input class="form-control" type="email" name="billing_email" required></div><div class="mb-3"><label>Billing phone *</label><input class="form-control" name="billing_phone" required></div><div class="mb-3"><label>Billing address</label><textarea class="form-control" name="billing_address"></textarea></div><div class="mb-3"><label>Tax ID</label><input class="form-control" name="tax_id"></div><div class="row g-3 mb-3"><div class="col-7"><label>Credit limit *</label><input class="form-control" type="number" name="credit_limit" min="0" step="0.01" required></div><div class="col-5"><label>Currency</label><select class="form-select" name="currency"><?php foreach (['NGN','USD','GBP','EUR'] as $currency): ?><option><?= e($currency) ?></option><?php endforeach; ?></select></div></div><div class="mb-3"><label>Payment terms (days) *</label><input class="form-control" type="number" name="payment_terms_days" min="0" max="365" value="30" required></div><div class="mb-4"><label>Account manager</label><select class="form-select" name="account_manager_id"><option value="0">Unassigned</option><?php foreach ($staff as $person): ?><option value="<?= e($person['id']) ?>"><?= e($person['full_name']) ?></option><?php endforeach; ?></select></div><button class="staff-btn w-100" type="submit">Create account</button>
+</form></section><?php endif; ?></div></div>
+<?php if ($account): ?><section class="staff-card mb-4"><div class="d-flex flex-wrap justify-content-between gap-3 mb-4"><div><span class="text-muted"><?= e($account['account_number']) ?></span><h2 class="h3 mb-1"><?= e($account['company_name']) ?></h2><p class="mb-0"><?= e($account['billing_email']) ?> · <?= e($account['billing_phone']) ?></p></div><div class="text-end"><small class="text-muted">Outstanding</small><strong class="d-block fs-4"><?= e($account['currency']) ?> <?= e(number_format((float) $account['outstanding'], 2)) ?></strong><small>Limit <?= e(number_format((float) $account['credit_limit'], 2)) ?></small></div></div>
+<?php if ((Auth::user()['role'] ?? '') === 'admin'): ?><div class="row g-4"><div class="col-md-6"><h3 class="h5">Add customer member</h3><form class="staff-form d-grid gap-3" method="post" action="<?= e(url('controller/router.php?action=staff.corporate.member')) ?>"><?= csrf_field() ?><input type="hidden" name="account_id" value="<?= e($account['id']) ?>"><input class="form-control" type="email" name="email" placeholder="Existing customer email" required><select class="form-select" name="member_role"><option value="member">Member</option><option value="manager">Manager</option><option value="owner">Owner</option></select><button class="staff-btn" type="submit">Add member</button></form></div><div class="col-md-6"><h3 class="h5">Record received payment</h3><form class="staff-form d-grid gap-3" method="post" action="<?= e(url('controller/router.php?action=staff.corporate.payment')) ?>"><?= csrf_field() ?><input type="hidden" name="account_id" value="<?= e($account['id']) ?>"><input class="form-control" type="number" name="amount" min="0.01" step="0.01" placeholder="Amount" required><input class="form-control" name="reference" maxlength="50" placeholder="Bank or receipt reference"><input class="form-control" name="description" maxlength="255" placeholder="Payment note"><button class="staff-btn" type="submit">Post payment</button></form></div></div><?php endif; ?>
+</section>
+<div class="row g-4"><div class="col-lg-5"><section class="staff-card"><h2 class="h4 mb-3">Members</h2><?php foreach ($members as $member): ?><div class="border-bottom py-2"><strong><?= e($member['full_name']) ?></strong><br><small><?= e($member['email']) ?> · <?= e(ucfirst((string) $member['member_role'])) ?></small></div><?php endforeach; ?></section></div><div class="col-lg-7"><section class="staff-card"><h2 class="h4 mb-3">Latest statement entries</h2><div class="table-responsive"><table class="table staff-table"><thead><tr><th>Date</th><th>Reference</th><th>Debit</th><th>Credit</th></tr></thead><tbody><?php foreach ($ledger as $entry): ?><tr><td><?= e(date('j M Y', strtotime((string) $entry['created_at']))) ?></td><td><strong><?= e($entry['reference']) ?></strong><br><small><?= e($entry['description']) ?></small></td><td><?= e(number_format((float) $entry['debit_amount'], 2)) ?></td><td><?= e(number_format((float) $entry['credit_amount'], 2)) ?></td></tr><?php endforeach; ?></tbody></table></div></section></div></div>
+<?php endif; ?>
+<?php require __DIR__ . '/_footer.php'; ?>

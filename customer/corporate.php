@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/app/bootstrap.php';
+
+use App\AddressService;
+use App\BookingService;
+use App\BulkShipmentService;
+use App\CorporateService;
+use App\CustomerAuth;
+use App\PricingService;
+
+CustomerAuth::requireCustomer();
+$customerId = (int) CustomerAuth::id();
+$accounts = CorporateService::forCustomer($customerId);
+$accountId = filter_var($_GET['account'] ?? ($accounts[0]['id'] ?? null), FILTER_VALIDATE_INT);
+$account = $accountId === false || $accountId === null ? null : CorporateService::findForCustomer((int) $accountId, $customerId);
+$ledger = $account ? CorporateService::ledger((int) $account['id']) : [];
+$bookings = array_values(array_filter(BookingService::allForCustomer($customerId), static fn (array $booking): bool => $booking['payment_status'] === 'unpaid' && $booking['status'] === 'awaiting_payment'));
+$batches = BulkShipmentService::batchesForCustomer($customerId);
+$addresses = AddressService::allForCustomer($customerId); $zones = PricingService::zones();
+$pageTitle = 'Corporate Logistics';
+require dirname(__DIR__) . '/app/views/partials/public-header.php';
+?>
+<section class="account-heading compact"><div class="container"><div><span class="page-eyebrow">Corporate logistics</span><h1>Credit, teams and bulk dispatch.</h1><p>Your company account statement and shipment batches share the same live booking records.</p></div></div></section>
+<section class="account-section"><div class="container"><?php require __DIR__ . '/_nav.php'; ?>
+<?php if ($accounts === []): ?><div class="easy-card text-center py-5"><i class="bi bi-buildings fs-1 text-primary"></i><h2 class="h4 mt-3">No corporate membership yet</h2><p class="text-muted mb-0">Ask your Easyway account manager to add the email used for this customer account.</p></div><?php else: ?>
+<div class="d-flex flex-wrap gap-2 mb-4"><?php foreach ($accounts as $option): ?><a class="easy-btn <?= $account && (int) $account['id'] === (int) $option['id'] ? '' : 'outline' ?>" href="<?= e(url('customer/corporate.php?account=' . $option['id'])) ?>"><?= e($option['company_name']) ?></a><?php endforeach; ?></div>
+<?php if ($account): $available = max(0, (float) $account['credit_limit'] - (float) $account['outstanding']); ?><div class="row g-4 mb-4"><div class="col-md-4"><div class="account-stat"><span>Credit limit</span><strong><?= e($account['currency']) ?> <?= e(number_format((float) $account['credit_limit'], 2)) ?></strong></div></div><div class="col-md-4"><div class="account-stat"><span>Outstanding</span><strong><?= e($account['currency']) ?> <?= e(number_format((float) $account['outstanding'], 2)) ?></strong></div></div><div class="col-md-4"><div class="account-stat"><span>Available credit</span><strong><?= e($account['currency']) ?> <?= e(number_format($available, 2)) ?></strong></div></div></div>
+<div class="row g-4 mb-4"><div class="col-xl-5"><section class="easy-form-card h-100"><h2 class="h4">Charge a booking to company credit</h2><p class="text-muted">The server checks membership, currency and available credit again before approval.</p><?php if ($bookings === []): ?><div class="alert alert-info">You have no unpaid bookings. <a href="<?= e(url('customer/book.php')) ?>">Create one first</a>.</div><?php else: ?><form method="post" action="<?= e(url('controller/router.php?action=customer.corporate.charge')) ?>"><?= csrf_field() ?><input type="hidden" name="account_id" value="<?= e($account['id']) ?>"><div class="mb-4"><label for="corp-booking">Unpaid booking</label><select class="form-select" id="corp-booking" name="booking_id" required><option value="">Choose booking</option><?php foreach ($bookings as $booking): ?><option value="<?= e($booking['id']) ?>"><?= e($booking['booking_number']) ?> · <?= e($booking['currency']) ?> <?= e(number_format((float) $booking['total_amount'], 2)) ?></option><?php endforeach; ?></select></div><button class="easy-btn" type="submit">Use corporate credit</button></form><?php endif; ?></section></div>
+<div class="col-xl-7"><section class="easy-form-card h-100"><h2 class="h4">Bulk shipment upload</h2><p class="text-muted">Up to 500 rows per CSV. Every row uses saved address IDs and the same server-side rate engine as a normal booking.</p><form method="post" enctype="multipart/form-data" action="<?= e(url('controller/router.php?action=customer.bulk.import')) ?>"><?= csrf_field() ?><input type="hidden" name="account_id" value="<?= e($account['id']) ?>"><div class="mb-4"><label for="bulk-csv">Completed CSV template</label><input class="form-control" type="file" id="bulk-csv" name="bulk_csv" accept=".csv,text/csv" required></div><div class="d-flex flex-wrap gap-2"><button class="easy-btn" type="submit"><i class="bi bi-upload"></i> Process batch</button><a class="easy-btn outline" href="<?= e(url('customer/bulk-template.php')) ?>"><i class="bi bi-download"></i> Download template</a></div></form><div class="row g-3 mt-3"><div class="col-md-6"><small class="text-muted d-block mb-1">Your address IDs</small><?php foreach ($addresses as $address): ?><span class="status-pill me-1 mb-1">#<?= e($address['id']) ?> <?= e($address['label']) ?></span><?php endforeach; ?></div><div class="col-md-6"><small class="text-muted d-block mb-1">Pricing zone IDs</small><?php foreach ($zones as $zone): ?><span class="status-pill me-1 mb-1">#<?= e($zone['id']) ?> <?= e($zone['name']) ?></span><?php endforeach; ?></div></div></section></div></div>
+<div class="row g-4"><div class="col-xl-7"><section class="easy-card"><h2 class="h4 mb-3">Corporate statement</h2><div class="table-responsive"><table class="table account-table"><thead><tr><th>Date</th><th>Reference</th><th>Debit</th><th>Credit</th></tr></thead><tbody><?php if ($ledger === []): ?><tr><td colspan="4" class="text-center text-muted py-4">No statement entries yet.</td></tr><?php endif; ?><?php foreach ($ledger as $entry): ?><tr><td><?= e(date('j M Y', strtotime((string) $entry['created_at']))) ?></td><td><strong><?= e($entry['reference']) ?></strong><br><small><?= e($entry['description']) ?></small></td><td><?= e(number_format((float) $entry['debit_amount'], 2)) ?></td><td><?= e(number_format((float) $entry['credit_amount'], 2)) ?></td></tr><?php endforeach; ?></tbody></table></div></section></div>
+<div class="col-xl-5"><section class="easy-card"><h2 class="h4 mb-3">Recent bulk batches</h2><?php if ($batches === []): ?><p class="text-muted mb-0">No bulk batches yet.</p><?php endif; ?><?php foreach ($batches as $batch): ?><a class="document-link" href="<?= e(url('customer/bulk-batch.php?id=' . $batch['id'])) ?>"><i class="bi bi-file-earmark-spreadsheet"></i><span><strong><?= e($batch['batch_number']) ?></strong><small><?= e($batch['successful_count']) ?> created · <?= e($batch['failed_count']) ?> rejected</small></span><i class="bi bi-chevron-right"></i></a><?php endforeach; ?></section></div></div>
+<?php endif; endif; ?></div></section>
+<?php require dirname(__DIR__) . '/app/views/partials/public-footer.php'; ?>
