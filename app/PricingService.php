@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App;
 
 use PDO;
+use PDOException;
 use RuntimeException;
+use Throwable;
 
 final class PricingService
 {
     /** @var array<string, string> */
-    private const SERVICES = [
+    public const DEFAULT_SERVICES = [
         'standard' => 'Standard Delivery',
         'express' => 'Express Delivery',
         'same_day' => 'Same-Day Delivery',
@@ -19,30 +21,51 @@ final class PricingService
     ];
 
     /** @return array<string, string> */
-    public static function services(): array
+    public static function services(bool $includeInactive = false): array
     {
-        return self::SERVICES;
+        // Compatible with deployments awaiting the additive catalogue installer.
+        if (!RateCatalogService::installed()) { return self::DEFAULT_SERVICES; }
+        return Database::connection()->query('SELECT code, name FROM rate_services'
+            . ($includeInactive ? '' : ' WHERE status = "active"') . ' ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
     /** @return array<int, array<string, mixed>> */
-    public static function zones(): array
+    public static function zones(bool $includeInactive = false): array
     {
         return Database::connection()->query(
-            'SELECT id, code, name, country_code FROM rate_zones WHERE status = "active" ORDER BY country_code = "ZZ", name'
+            'SELECT * FROM rate_zones' . ($includeInactive ? '' : ' WHERE status = "active"') . ' ORDER BY country_code = "ZZ", name'
         )->fetchAll();
     }
 
     /** @return array<int, array<string, mixed>> */
     public static function allRates(): array
     {
-        return Database::connection()->query(
-            'SELECT r.*, oz.name AS origin_name, dz.name AS destination_name, u.full_name AS staff_name
+        $rates = Database::connection()->query(
+            'SELECT r.*, oz.name AS origin_name, dz.name AS destination_name, oz.status AS origin_status,
+                    dz.status AS destination_status, u.full_name AS staff_name
              FROM rate_cards r
              JOIN rate_zones oz ON oz.id = r.origin_zone_id
              JOIN rate_zones dz ON dz.id = r.destination_zone_id
              JOIN staff_users u ON u.id = r.created_by
              ORDER BY r.status = "active" DESC, oz.name, dz.name, r.service_name'
         )->fetchAll();
+        $services = self::services(true);
+        $activeServices = self::services();
+        foreach ($rates as &$rate) {
+            $rate['service_name'] = $services[$rate['service_code']] ?? $rate['service_name'];
+            $rate['available'] = $rate['status'] === 'active' && $rate['origin_status'] === 'active'
+                && $rate['destination_status'] === 'active' && isset($activeServices[$rate['service_code']]);
+        }
+        unset($rate);
+        return $rates;
+    }
+
+    public static function findRate(int $id): ?array
+    {
+        $statement = Database::connection()->prepare('SELECT * FROM rate_cards WHERE id = ?');
+        $statement->execute([$id]);
+        $row = $statement->fetch();
+        return is_array($row) ? $row : null;
     }
 
     /** @param array<string, mixed> $input @return array<string, mixed> */
@@ -51,8 +74,9 @@ final class PricingService
         $originId = (int) ($input['origin_zone_id'] ?? 0);
         $destinationId = (int) ($input['destination_zone_id'] ?? 0);
         $serviceCode = (string) ($input['service_code'] ?? '');
+        $services = self::services();
         $weight = round((float) ($input['weight_kg'] ?? 0), 2);
-        if ($originId < 1 || $destinationId < 1 || !isset(self::SERVICES[$serviceCode]) || !is_finite($weight) || $weight <= 0 || $weight > 100000) {
+        if ($originId < 1 || $destinationId < 1 || !isset($services[$serviceCode]) || !is_finite($weight) || $weight <= 0 || $weight > 100000) {
             throw new RuntimeException('Choose a valid route, service and package weight.');
         }
 
@@ -62,7 +86,8 @@ final class PricingService
              JOIN rate_zones oz ON oz.id = r.origin_zone_id
              JOIN rate_zones dz ON dz.id = r.destination_zone_id
              WHERE r.origin_zone_id = :origin AND r.destination_zone_id = :destination
-               AND r.service_code = :service AND r.status = "active" LIMIT 1'
+               AND r.service_code = :service AND r.status = "active"
+               AND oz.status = "active" AND dz.status = "active" LIMIT 1'
         );
         $statement->execute(['origin' => $originId, 'destination' => $destinationId, 'service' => $serviceCode]);
         $rate = $statement->fetch(PDO::FETCH_ASSOC);
@@ -104,7 +129,7 @@ final class PricingService
             'origin_name' => (string) $rate['origin_name'],
             'destination_name' => (string) $rate['destination_name'],
             'service_code' => $serviceCode,
-            'service_name' => (string) $rate['service_name'],
+            'service_name' => $services[$serviceCode],
             'currency' => (string) $rate['currency'],
             'weight_kg' => $weight,
             'volumetric_weight_kg' => $volumetric,
@@ -123,36 +148,99 @@ final class PricingService
     }
 
     /** @param array<string, mixed> $data */
-    public static function saveRate(array $data, int $staffId): void
+    public static function saveRate(array $data, int $staffId, bool $fromForm = false): int
     {
-        if (!isset(self::SERVICES[$data['service_code']])) {
-            throw new RuntimeException('Choose a valid service.');
+        RateCatalogService::assertAdmin($staffId);
+        $values = self::validateRate($data);
+        $id = RateCatalogService::id($data['id'] ?? 0, true);
+        $pdo = Database::connection();
+        $ownsTransaction = !$pdo->inTransaction();
+        if ($ownsTransaction) { $pdo->beginTransaction(); }
+        try {
+            // Keep the old internal route-upsert API for existing integrations. Staff
+            // forms always pass an explicit ID and may never overwrite another route.
+            if (!$fromForm && $id === 0) {
+                $lookup = $pdo->prepare('SELECT id FROM rate_cards WHERE origin_zone_id = ? AND destination_zone_id = ? AND service_code = ?');
+                $lookup->execute([$values['origin_zone_id'],$values['destination_zone_id'],$values['service_code']]);
+                $id = (int) ($lookup->fetchColumn() ?: 0);
+            }
+            if ($id > 0) {
+                $lookup = $pdo->prepare('SELECT * FROM rate_cards WHERE id = ? FOR UPDATE');
+                $lookup->execute([$id]); $existing = $lookup->fetch();
+                if (!is_array($existing)) { throw new RuntimeException('That rate no longer exists.'); }
+                if ($fromForm) { RateCatalogService::assertVersion($existing, $data['version'] ?? null); }
+            }
+            $duplicate = $pdo->prepare('SELECT id FROM rate_cards WHERE origin_zone_id = ? AND destination_zone_id = ? AND service_code = ? AND id <> ?');
+            $duplicate->execute([$values['origin_zone_id'],$values['destination_zone_id'],$values['service_code'],$id]);
+            if ($duplicate->fetchColumn()) { throw new RuntimeException('A rate already exists for this origin, destination and service. Use its Edit button instead.'); }
+            $zoneLookup = $pdo->prepare('SELECT id,status FROM rate_zones WHERE id IN (?,?) ORDER BY id FOR UPDATE');
+            $zoneLookup->execute([$values['origin_zone_id'],$values['destination_zone_id']]);
+            $zones = $zoneLookup->fetchAll(PDO::FETCH_KEY_PAIR);
+            foreach (['origin_zone_id','destination_zone_id'] as $field) {
+                if (!isset($zones[$values[$field]])) { throw new RuntimeException('Choose an existing origin and destination.'); }
+                if ($values['status'] === 'active' && $zones[$values[$field]] !== 'active') { throw new RuntimeException('Activate the origin and destination before activating this rate.'); }
+            }
+            if (RateCatalogService::installed()) {
+                $serviceLookup = $pdo->prepare('SELECT name,status FROM rate_services WHERE code = ? FOR UPDATE');
+                $serviceLookup->execute([$values['service_code']]); $service = $serviceLookup->fetch();
+                if (!is_array($service)) { throw new RuntimeException('Choose an existing service.'); }
+                if ($values['status'] === 'active' && $service['status'] !== 'active') { throw new RuntimeException('Activate the service before activating this rate.'); }
+                $values['service_name'] = $service['name'];
+            } else {
+                $values['service_name'] = self::DEFAULT_SERVICES[$values['service_code']] ?? throw new RuntimeException('Choose a valid service.');
+            }
+            $assignments = implode(', ', array_map(static fn (string $key): string => $key . ' = :' . $key, array_keys($values)));
+            if ($id > 0) {
+                $values['id'] = $id;
+                $pdo->prepare('UPDATE rate_cards SET ' . $assignments . ', updated_at = NOW() WHERE id = :id')->execute($values);
+            } else {
+                $values['staff'] = $staffId;
+                $pdo->prepare('INSERT INTO rate_cards SET ' . $assignments . ', created_by = :staff, created_at = NOW(), updated_at = NOW()')->execute($values);
+                $id = (int) $pdo->lastInsertId();
+            }
+            AuditService::record('pricing.rate_saved', 'rate_card', $id, ['route' => $values['origin_zone_id'] . '-' . $values['destination_zone_id'], 'service' => $values['service_code'], 'actor_id' => $staffId]);
+            if ($ownsTransaction) { $pdo->commit(); }
+            return $id;
+        } catch (Throwable $exception) {
+            if ($ownsTransaction && $pdo->inTransaction()) { $pdo->rollBack(); }
+            if ($exception instanceof PDOException && (int) ($exception->errorInfo[1] ?? 0) === 1062) { throw new RuntimeException('A rate already exists for this origin, destination and service. Use its Edit button instead.'); }
+            throw $exception;
         }
-        $statement = Database::connection()->prepare(
-            'INSERT INTO rate_cards
-                (origin_zone_id, destination_zone_id, service_code, service_name, currency, base_fee, base_weight_kg,
-                 extra_kg_fee, minimum_fee, fuel_percent, insurance_percent, packaging_fee, tax_percent,
-                 volumetric_divisor, estimated_days_min, estimated_days_max, status, created_by, created_at, updated_at)
-             VALUES
-                (:origin, :destination, :service_code, :service_name, :currency, :base_fee, :base_weight,
-                 :extra_fee, :minimum_fee, :fuel, :insurance, :packaging, :tax, :divisor, :days_min, :days_max,
-                 :status, :staff, NOW(), NOW())
-             ON DUPLICATE KEY UPDATE service_name = VALUES(service_name), currency = VALUES(currency),
-                 base_fee = VALUES(base_fee), base_weight_kg = VALUES(base_weight_kg), extra_kg_fee = VALUES(extra_kg_fee),
-                 minimum_fee = VALUES(minimum_fee), fuel_percent = VALUES(fuel_percent), insurance_percent = VALUES(insurance_percent),
-                 packaging_fee = VALUES(packaging_fee), tax_percent = VALUES(tax_percent), volumetric_divisor = VALUES(volumetric_divisor),
-                 estimated_days_min = VALUES(estimated_days_min), estimated_days_max = VALUES(estimated_days_max),
-                 status = VALUES(status), created_by = VALUES(created_by), updated_at = NOW()'
-        );
-        $statement->execute([
-            'origin' => $data['origin_zone_id'], 'destination' => $data['destination_zone_id'],
-            'service_code' => $data['service_code'], 'service_name' => self::SERVICES[$data['service_code']],
-            'currency' => $data['currency'], 'base_fee' => $data['base_fee'], 'base_weight' => $data['base_weight_kg'],
-            'extra_fee' => $data['extra_kg_fee'], 'minimum_fee' => $data['minimum_fee'], 'fuel' => $data['fuel_percent'],
-            'insurance' => $data['insurance_percent'], 'packaging' => $data['packaging_fee'], 'tax' => $data['tax_percent'],
-            'divisor' => $data['volumetric_divisor'], 'days_min' => $data['estimated_days_min'],
-            'days_max' => $data['estimated_days_max'], 'status' => $data['status'], 'staff' => $staffId,
-        ]);
-        AuditService::record('pricing.rate_saved', 'rate_card', null, ['route' => $data['origin_zone_id'] . '-' . $data['destination_zone_id'], 'service' => $data['service_code']]);
+    }
+
+    private static function validateRate(array $data): array
+    {
+        $values = [
+            'origin_zone_id' => RateCatalogService::id($data['origin_zone_id'] ?? null),
+            'destination_zone_id' => RateCatalogService::id($data['destination_zone_id'] ?? null),
+            'service_code' => RateCatalogService::text($data['service_code'] ?? '', 40, 'service'),
+            'currency' => strtoupper(RateCatalogService::text($data['currency'] ?? '', 3, 'currency')),
+            'status' => RateCatalogService::text($data['status'] ?? 'active', 20, 'status'),
+        ];
+        if (!in_array($values['currency'], ['NGN','USD','GBP','EUR'], true) || !in_array($values['status'], ['active','inactive'], true)) {
+            throw new RuntimeException('Choose a valid currency and status.');
+        }
+        foreach (['base_fee','base_weight_kg','extra_kg_fee','minimum_fee','packaging_fee','fuel_percent','insurance_percent','tax_percent','volumetric_divisor'] as $field) {
+            $percentage = str_ends_with($field, '_percent');
+            $min = $field === 'base_weight_kg' ? 0.01 : ($field === 'volumetric_divisor' ? 1 : 0);
+            $max = $percentage ? 100 : (in_array($field, ['base_weight_kg','volumetric_divisor'], true) ? 100000 : 1000000000);
+            $input = $data[$field] ?? null;
+            $value = is_scalar($input) ? filter_var($input, FILTER_VALIDATE_FLOAT) : false;
+            if ($value === false || !is_finite((float) $value) || $value < $min || $value > $max) {
+                throw new RuntimeException('Enter a valid ' . str_replace('_', ' ', $field) . ' between ' . $min . ' and ' . $max . '.');
+            }
+            $values[$field] = round((float) $value, $percentage ? 3 : 2);
+        }
+        foreach (['estimated_days_min','estimated_days_max'] as $field) {
+            $input = $data[$field] ?? null;
+            $value = ($input === null || $input === '') ? null : filter_var($input, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 365]]);
+            if ($value === false) { throw new RuntimeException('Delivery days must be whole numbers between 0 and 365.'); }
+            $values[$field] = $value;
+        }
+        if (($values['estimated_days_min'] === null) !== ($values['estimated_days_max'] === null)
+            || ($values['estimated_days_min'] !== null && $values['estimated_days_min'] > $values['estimated_days_max'])) {
+            throw new RuntimeException('Enter both delivery-day limits in order, or leave both blank.');
+        }
+        return $values;
     }
 }

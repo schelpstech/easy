@@ -17,3 +17,6 @@ tools/*
 tools/qa/*
 !tools/qa/inquiry_inbox_smoke.php
 !tools/qa/inquiry_inbox_http.php
+!tools/install_rate_management.php
+!tools/qa/rate_management_smoke.php
+!tools/qa/rate_management_http.php

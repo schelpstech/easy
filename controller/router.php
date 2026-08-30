@@ -17,6 +17,7 @@ use App\InquiryService;
 use App\InquiryInboxService;
 use App\PaymentService;
 use App\PricingService;
+use App\RateCatalogService;
 use App\ProofOfDeliveryService;
 use App\RiderService;
 use App\ShipmentService;
@@ -363,39 +364,22 @@ try {
             require_post();
             require_csrf();
             Auth::requireRole(['admin']);
-            $decimal = static function (mixed $value, float $min, float $max): float {
-                $valid = filter_var($value, FILTER_VALIDATE_FLOAT);
-                if ($valid === false || $valid < $min || $valid > $max) { throw new RuntimeException('One or more rate values are outside the allowed range.'); }
-                return round((float) $valid, 3);
-            };
-            $daysMin = filter_var($_POST['estimated_days_min'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 365]]);
-            $daysMax = filter_var($_POST['estimated_days_max'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0, 'max_range' => 365]]);
-            $data = [
-                'origin_zone_id' => (int) ($_POST['origin_zone_id'] ?? 0), 'destination_zone_id' => (int) ($_POST['destination_zone_id'] ?? 0),
-                'service_code' => Validator::choice($_POST['service_code'] ?? '', array_keys(PricingService::services())),
-                'currency' => Validator::choice(strtoupper((string) ($_POST['currency'] ?? 'NGN')), ['NGN','USD','GBP','EUR']),
-                'base_fee' => $decimal($_POST['base_fee'] ?? null, 0, 1000000000),
-                'base_weight_kg' => $decimal($_POST['base_weight_kg'] ?? null, 0.01, 100000),
-                'extra_kg_fee' => $decimal($_POST['extra_kg_fee'] ?? null, 0, 1000000000),
-                'minimum_fee' => $decimal($_POST['minimum_fee'] ?? 0, 0, 1000000000),
-                'fuel_percent' => $decimal($_POST['fuel_percent'] ?? 0, 0, 100),
-                'insurance_percent' => $decimal($_POST['insurance_percent'] ?? 0, 0, 100),
-                'packaging_fee' => $decimal($_POST['packaging_fee'] ?? 0, 0, 1000000000),
-                'tax_percent' => $decimal($_POST['tax_percent'] ?? 0, 0, 100),
-                'volumetric_divisor' => $decimal($_POST['volumetric_divisor'] ?? 5000, 1, 100000),
-                'estimated_days_min' => $daysMin === false ? null : $daysMin,
-                'estimated_days_max' => $daysMax === false ? null : $daysMax,
-                'status' => Validator::choice($_POST['status'] ?? 'active', ['active','inactive']),
-            ];
-            if ($data['origin_zone_id'] < 1 || $data['destination_zone_id'] < 1 || $data['service_code'] === '' || $data['currency'] === '') {
-                throw new RuntimeException('Choose a valid route, service and currency.');
-            }
-            if ($data['estimated_days_min'] !== null && $data['estimated_days_max'] !== null && $data['estimated_days_min'] > $data['estimated_days_max']) {
-                throw new RuntimeException('The minimum delivery time cannot be greater than the maximum.');
-            }
-            PricingService::saveRate($data, (int) Auth::id());
-            Flash::set('success', 'Rate card saved. The calculator now uses this route and service.');
-            redirect('staff/rates.php');
+            $draftFields = ['id','version','origin_zone_id','destination_zone_id','service_code','currency','base_fee','base_weight_kg','extra_kg_fee','minimum_fee','fuel_percent','insurance_percent','packaging_fee','tax_percent','volumetric_divisor','estimated_days_min','estimated_days_max','status'];
+            $_SESSION['rate_management_draft'] = ['kind' => 'rate', 'values' => array_map(static fn ($value): string => is_scalar($value) ? mb_substr((string) $value, 0, 160) : '', array_intersect_key($_POST, array_flip($draftFields)))];
+            $rateId = PricingService::saveRate($_POST, (int) Auth::id(), true);
+            unset($_SESSION['rate_management_draft']);
+            Flash::set('success', 'Rate saved. New estimates use active rates; existing booking prices are unchanged.');
+            redirect('staff/rates.php?id=' . $rateId);
+
+        case 'staff.rate.zone.save':
+        case 'staff.rate.service.save':
+            require_post(); require_csrf(); Auth::requireRole(['admin']);
+            $kind = $action === 'staff.rate.zone.save' ? 'zone' : 'service';
+            $_SESSION['rate_management_draft'] = ['kind' => $kind, 'values' => array_map(static fn ($value): string => is_scalar($value) ? mb_substr((string) $value, 0, 160) : '', array_intersect_key($_POST, array_flip(['id','version','code','name','country_code','status'])))];
+            $optionId = RateCatalogService::save($kind, $_POST, (int) Auth::id());
+            unset($_SESSION['rate_management_draft']);
+            Flash::set('success', $kind === 'zone' ? 'Location saved. Active locations are available as both origins and destinations.' : 'Service saved. Add an active route rate to make it available for online estimates.');
+            redirect('staff/rate-options.php?kind=' . $kind . '&id=' . $optionId);
 
         case 'staff.booking.convert':
             require_post();
@@ -595,6 +579,11 @@ try {
     Flash::set('danger', $exception instanceof RuntimeException ? $exception->getMessage() : 'We could not complete that request. Please try again.');
     if (str_starts_with($action, 'staff.')) {
         if (Auth::check()) {
+            if (str_starts_with($action, 'staff.rate.')) {
+                $editId = filter_var($_POST['id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) ?: 0;
+                if ($action === 'staff.rate.save') { redirect('staff/rates.php?' . ($editId > 0 ? 'id=' . $editId : 'new=1')); }
+                redirect('staff/rate-options.php?kind=' . ($action === 'staff.rate.zone.save' ? 'zone' : 'service') . ($editId > 0 ? '&id=' . $editId : ''));
+            }
             if (str_starts_with($action, 'staff.inquiry.')) {
                 $type = Validator::choice($_POST['type'] ?? '', InquiryInboxService::TYPES);
                 $inquiryId = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

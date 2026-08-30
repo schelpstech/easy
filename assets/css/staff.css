@@ -98,6 +98,15 @@ body.staff-body { margin:0; color:var(--staff-ink); background:#f4f7f9; font-fam
 .settings-code { padding:14px; background:var(--staff-mist); border-radius:10px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; }
 .staff-form small { display:block; margin-top:6px; line-height:1.5; }
 .staff-form fieldset { min-width:0; }
+.rate-heading { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; }
+.rate-heading > div { min-width:0; flex:1 1 260px; }
+.rate-search { display:flex; flex-wrap:wrap; gap:10px; max-width:650px; }
+.rate-search .form-control { flex:1 1 220px; width:auto; }
+.rate-table { min-width:760px; }
+.rate-options-table { min-width:420px; }
+.rate-table td:first-child,.rate-options-table td:first-child { min-width:180px; max-width:320px; overflow-wrap:anywhere; }
+.rate-table .staff-btn,.rate-options-table .staff-btn { white-space:nowrap; }
+.rate-table th,.rate-options-table th { position:relative; }
 @media (max-width: 991px) {
   .staff-layout { grid-template-columns:1fr; }
   .staff-sidebar { position:fixed; left:-270px; z-index:1100; width:250px; transition:left .2s ease; }
@@ -114,4 +123,10 @@ body.staff-body { margin:0; color:var(--staff-ink); background:#f4f7f9; font-fam
   .report-bar-row { grid-template-columns:75px 1fr 65px; gap:7px; }
   .rider-topbar { padding-left:16px; padding-right:16px; }
   .rider-topbar > div span { display:none; }
+}
+@media (max-width: 375px) {
+  .staff-topbar { gap:8px; }
+  .staff-topbar > div { min-width:0; gap:10px !important; }
+  .staff-topbar h1 { font-size:18px; }
+  .staff-topbar .staff-btn { padding-left:10px; padding-right:10px; }
 }
