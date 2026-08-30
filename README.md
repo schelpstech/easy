@@ -65,6 +65,23 @@ Stage 1 extends the original static Easyway homepage with a small custom PHP 8.2
 
 ## Production integrations
 
+### Staff accounts, passwords and delivery settings
+
+- Run `php tools/install_staff_settings.php` once on each deployment. It adds only `notification_settings` and a private encryption key; it does not alter staff records or enable delivery.
+- Administrators can open **Staff Accounts** to create administrator or dispatcher logins. Rider accounts remain in **Riders**. Account creation requires the administrator's current password and a confirmed initial password. Share that initial password privately.
+- **Change Password** is available to staff and riders. It requires the current password, checks confirmation, and signs out all sessions of that account. Existing sessions created before this upgrade must sign in once again.
+- Open **Delivery Settings** (administrator only) for Email, SMS and WhatsApp. Save drafts with delivery disabled, then use **Send test** to send one fixed message to an inbox/phone you control. Test acceptance is not a delivery receipt. Tests do not drain the outbox.
+- Email supports hosting-managed server mail or authenticated SMTP with STARTTLS/implicit TLS (ports 587, 465 or 2525). PHP cURL with SMTP/SMTPS and OpenSSL support is required. Certificate verification is never disabled. SMTP support uses the [PHP cURL mail options](https://www.php.net/manual/en/function.curl-setopt.php).
+- SMS and WhatsApp retain the provider-neutral adapter contract: HTTPS POST JSON `{ "to": "+234...", "message": "...", "reference": "EWN-123" }`, optionally with a Bearer token. The adapter must translate to the chosen provider, manage sender IDs/approved WhatsApp templates, reject provider failures with non-2xx responses, and deduplicate `reference` on retries. Do not enter a raw provider API unless it accepts this contract.
+- Only public provider hosts are supported; local/private destinations and redirects are blocked. Webhook URLs cannot contain credentials, query parameters or fragments.
+- Saved database settings override that channel's environment defaults for both the web portal and the CLI worker. Credentials are blank in forms, retained on an empty submission, and removed only with the explicit removal checkbox. Database credentials use [authenticated AES-256-GCM encryption](https://www.php.net/manual/en/function.openssl-encrypt.php).
+- Securely back up `storage/private/notification-key.php` (or the `NOTIFICATION_SETTINGS_KEY` environment value) together with the database. Losing/changing the key makes saved credentials unreadable. Never commit it. Keep `storage` denied by the web server; non-Apache hosts need equivalent access rules.
+- Enabling a channel allows the existing scheduled worker to send its pending backlog. Saving/testing does not schedule a job. Review the outbox before enabling. To stop sending, disable the channel and stop any already-running worker; an in-flight request may already have been accepted.
+- Verify with `php tools/qa/staff_settings_smoke.php`. It uses temporary QA accounts and disabled settings, rolls back its changes and sends no messages.
+- For HTTP workflow checks, start a local PHP development server and run `php tools/qa/staff_settings_http.php http://127.0.0.1:8099`. This checks real login, account creation, password changes, role restrictions and CSRF, then removes its own QA accounts without changing delivery settings.
+
+### Payments and scheduled delivery
+
 - Keep `PAYSTACK_ENABLED=false` until `APP_URL` is the final HTTPS origin, `PAYSTACK_SECRET_KEY` is configured, and the Paystack dashboard webhook points to `/webhooks/paystack.php`.
 - Paystack amounts are initialized on the server in currency subunits. Callback and webhook handling both verify status, exact amount and currency before confirming a booking.
 - Keep email, SMS and WhatsApp flags disabled until their transports are configured. SMS/WhatsApp adapters POST JSON containing `to`, `message` and `reference` to the configured HTTPS webhook with an optional bearer token.

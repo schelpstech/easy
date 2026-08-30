@@ -120,52 +120,36 @@ final class NotificationService
         }
     }
 
-    private static function channelEnabled(string $channel): bool
+    public static function channelEnabled(string $channel): bool
     {
-        return match ($channel) {
-            'email' => Config::bool('EMAIL_NOTIFICATIONS_ENABLED', false),
-            'sms' => Config::bool('SMS_NOTIFICATIONS_ENABLED', false) && trim((string) Config::get('SMS_WEBHOOK_URL', '')) !== '',
-            'whatsapp' => Config::bool('WHATSAPP_NOTIFICATIONS_ENABLED', false) && trim((string) Config::get('WHATSAPP_WEBHOOK_URL', '')) !== '',
-            default => false,
-        };
+        $settings = NotificationSettings::get($channel);
+        if (empty($settings['enabled'])) { return false; }
+        try {
+            $settings['secret'] = $settings['has_secret'] ? '[configured]' : '';
+            NotificationSettings::validate($channel, $settings);
+            return true;
+        } catch (\RuntimeException) { return false; }
+    }
+
+    public static function sendTest(string $channel, string $recipient, string $password): void
+    {
+        StaffAccountService::requireAdmin();
+        if (!Auth::verifyPassword($password)) { throw new \RuntimeException('Your current password is incorrect or verification is temporarily locked.'); }
+        $recipient = trim($recipient);
+        if (($channel === 'email' && (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n\x00]/', $recipient)))
+            || ($channel !== 'email' && !preg_match('/^\+[1-9][0-9]{7,14}$/D', $recipient))) {
+            throw new \RuntimeException('Enter a valid test email or international phone number, for example +2349031134210.');
+        }
+        // Only this fixed test is sent; pending customer notifications are never processed here.
+        NotificationTransport::send(['id' => 'TEST-' . bin2hex(random_bytes(8)), 'channel' => $channel,
+            'recipient' => $recipient, 'subject' => 'Easyway notification test',
+            'message' => 'This is a test message from Easyway Logistics. No shipment or payment action is required.'], NotificationSettings::get($channel, true));
+        AuditService::record('notifications.test_accepted', 'notification_settings', null, ['channel' => $channel]);
     }
 
     /** @param array<string, mixed> $notification */
     private static function deliver(array $notification): void
     {
-        if ($notification['channel'] === 'email') {
-            $headers = ['Content-Type: text/plain; charset=UTF-8', 'From: Easyway Logistics <' . Config::get('EMAIL_FROM', 'no-reply@easyway.ng') . '>'];
-            if (!mail((string) $notification['recipient'], (string) ($notification['subject'] ?: 'Easyway Logistics update'), (string) $notification['message'], implode("\r\n", $headers))) {
-                throw new \RuntimeException('The mail transport rejected the notification.');
-            }
-            return;
-        }
-
-        $prefix = strtoupper((string) $notification['channel']);
-        $url = (string) Config::get($prefix . '_WEBHOOK_URL', '');
-        $token = (string) Config::get($prefix . '_WEBHOOK_TOKEN', '');
-        if (!function_exists('curl_init')) {
-            throw new \RuntimeException('PHP cURL is required for messaging webhooks.');
-        }
-        $handle = curl_init($url);
-        $headers = ['Content-Type: application/json'];
-        if ($token !== '') {
-            $headers[] = 'Authorization: Bearer ' . $token;
-        }
-        curl_setopt_array($handle, [
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => json_encode(['to' => $notification['recipient'], 'message' => $notification['message'], 'reference' => 'EWN-' . $notification['id']]),
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_TIMEOUT => 20,
-        ]);
-        curl_exec($handle);
-        $error = curl_error($handle);
-        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
-        if ($error !== '' || $status < 200 || $status >= 300) {
-            throw new \RuntimeException($error !== '' ? $error : 'Messaging provider returned HTTP ' . $status . '.');
-        }
+        NotificationTransport::send($notification, NotificationSettings::get((string) $notification['channel'], true));
     }
 }

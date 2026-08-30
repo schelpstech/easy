@@ -20,6 +20,9 @@ use App\ProofOfDeliveryService;
 use App\RiderService;
 use App\ShipmentService;
 use App\Validator;
+use App\StaffAccountService;
+use App\NotificationSettings;
+use App\NotificationService;
 
 $action = (string) ($_GET['action'] ?? '');
 
@@ -86,6 +89,39 @@ try {
             }
             Flash::set('danger', 'The sign-in details are incorrect or temporarily locked.');
             redirect('staff/login.php');
+
+        case 'staff.account.create':
+            require_post(); require_csrf(); Auth::requireRole(['admin']);
+            store_form_state('staff_account', [
+                'full_name' => Validator::text($_POST['full_name'] ?? '', 120),
+                'email' => Validator::email($_POST['email'] ?? ''),
+                'role' => Validator::choice($_POST['role'] ?? '', ['admin', 'dispatcher']),
+            ], []);
+            StaffAccountService::create($_POST);
+            pull_form_state('staff_account');
+            Flash::set('success', 'Staff account created. Share the initial password securely and ask the staff member to change it after signing in.');
+            redirect('staff/accounts.php');
+
+        case 'staff.password.change':
+            require_post(); require_csrf(); Auth::requireStaff();
+            StaffAccountService::changePassword((string) ($_POST['current_password'] ?? ''), (string) ($_POST['password'] ?? ''), (string) ($_POST['password_confirmation'] ?? ''));
+            Flash::set('success', 'Password changed. All staff sessions for your account have been signed out. Sign in with your new password.');
+            redirect('staff/login.php');
+
+        case 'staff.notification_settings.save':
+            require_post(); require_csrf(); Auth::requireRole(['admin']);
+            $channel = Validator::choice($_POST['channel'] ?? '', NotificationSettings::CHANNELS);
+            NotificationSettings::save($channel, $_POST);
+            Flash::set('success', 'Delivery settings saved. Use Send test to check the saved configuration.');
+            redirect('staff/settings.php?channel=' . $channel);
+
+        case 'staff.notification_settings.test':
+            require_post(); require_csrf(); Auth::requireRole(['admin']);
+            if (!submission_allowed('notification_test', 30)) { throw new RuntimeException('Wait 30 seconds before sending another test.'); }
+            $channel = Validator::choice($_POST['channel'] ?? '', NotificationSettings::CHANNELS);
+            NotificationService::sendTest($channel, (string) ($_POST['recipient'] ?? ''), (string) ($_POST['current_password'] ?? ''));
+            Flash::set('success', 'The saved transport accepted the test. Check the recipient inbox or phone; acceptance does not confirm final delivery.');
+            redirect('staff/settings.php?channel=' . $channel);
 
         case 'customer.register':
             require_post();
@@ -533,6 +569,13 @@ try {
     error_log('Easyway route failure [' . $action . ']: ' . $exception->getMessage());
     Flash::set('danger', $exception instanceof RuntimeException ? $exception->getMessage() : 'We could not complete that request. Please try again.');
     if (str_starts_with($action, 'staff.')) {
+        if (Auth::check()) {
+            if ($action === 'staff.account.create') { redirect('staff/accounts.php'); }
+            if ($action === 'staff.password.change') { redirect('staff/password.php'); }
+            if (str_starts_with($action, 'staff.notification_settings.')) {
+                redirect('staff/settings.php?channel=' . Validator::choice($_POST['channel'] ?? '', NotificationSettings::CHANNELS, 'email'));
+            }
+        }
         redirect(Auth::check() ? staff_home_path() : 'staff/login.php');
     }
     if (str_starts_with($action, 'rider.')) { redirect(Auth::check() ? 'rider/index.php' : 'staff/login.php'); }

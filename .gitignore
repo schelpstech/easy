@@ -5,4 +5,5 @@ storage/cache/*
 storage/sessions/*
 !storage/sessions/.gitkeep
 storage/proof-of-delivery/*
+storage/private/*
 database
