@@ -68,6 +68,8 @@ Stage 1 extends the original static Easyway homepage with a small custom PHP 8.2
 ### Staff accounts, passwords and delivery settings
 
 - Run `php tools/install_staff_settings.php` once on each deployment. It adds only `notification_settings` and a private encryption key; it does not alter staff records or enable delivery.
+- If the settings table already exists, the first administrator save containing a credential can securely create a missing key in `storage/private`. This is allowed only when there are no encrypted credentials already saved. Existing or invalid keys are never replaced automatically. PHP needs write access for initial setup and read access afterward.
+- The Delivery Settings page reports missing keys, invalid environment keys, file-read permissions and unavailable OpenSSL separately. For a hosted deployment, the key and PHP extensions must exist on that host, not only on your local AMPPS machine. Restore the original key whenever encrypted credentials already exist.
 - Administrators can open **Staff Accounts** to create administrator or dispatcher logins. Rider accounts remain in **Riders**. Account creation requires the administrator's current password and a confirmed initial password. Share that initial password privately.
 - **Change Password** is available to staff and riders. It requires the current password, checks confirmation, and signs out all sessions of that account. Existing sessions created before this upgrade must sign in once again.
 - Open **Delivery Settings** (administrator only) for Email, SMS and WhatsApp. Save drafts with delivery disabled, then use **Send test** to send one fixed message to an inbox/phone you control. Test acceptance is not a delivery receipt. Tests do not drain the outbox.

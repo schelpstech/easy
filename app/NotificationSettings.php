@@ -64,6 +64,9 @@ final class NotificationSettings
                 'port' => (int) ($input['port'] ?? 587), 'encryption' => (string) ($input['encryption'] ?? ''), 'username' => trim((string) ($input['username'] ?? ''))];
         } else { $settings['url'] = trim((string) ($input['url'] ?? '')); }
         self::validate($channel, $settings + ['secret' => $secret], $settings['enabled']);
+        // First-time web setup may not have a deployment key yet. Never replace a key
+        // or generate one over credentials that need an original key to decrypt.
+        if ($secret !== '') { self::initializeKey(); }
         $encrypted = $secret === '' ? null : self::encrypt($secret, $channel);
         $pdo = Database::connection();
         $ownsTransaction = !$pdo->inTransaction();
@@ -113,38 +116,96 @@ final class NotificationSettings
 
     public static function initializeKey(): void
     {
-        if (PHP_SAPI !== 'cli') { throw new RuntimeException('Use the command-line installer.'); }
+        if (PHP_SAPI !== 'cli') { StaffAccountService::requireAdmin(); }
+        self::assertEncryptionAvailable();
         if ((string) Config::get('NOTIFICATION_SETTINGS_KEY', '') !== '') { self::key(); return; }
         $path = self::keyPath();
+        // Healthy existing deployments do not need write access to the key directory.
         if (is_file($path)) { self::key(); return; }
-        if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0700, true)) { throw new RuntimeException('Cannot create private key directory.'); }
-        $handle = fopen($path, 'x');
-        if ($handle === false) { throw new RuntimeException('Cannot create settings encryption key.'); }
+        self::assertNoEncryptedCredentials();
+        if (!is_dir(dirname($path)) && !@mkdir(dirname($path), 0700, true) && !is_dir(dirname($path))) {
+            throw new RuntimeException('Cannot create the private notification key directory. Allow PHP to write storage/private, or run the installer on this server.');
+        }
+        $lock = @fopen($path . '.lock', 'c');
+        if ($lock === false) { throw new RuntimeException('Cannot initialize the notification key. Allow PHP to write storage/private, or run the installer on this server.'); }
+        $temporary = null;
         try {
+            if (!flock($lock, LOCK_EX)) { throw new RuntimeException('Cannot lock notification key setup. Please try again.'); }
+            clearstatcache(true, $path);
+            if (is_file($path)) { self::key(); return; }
+            self::assertNoEncryptedCredentials();
+            // Publish only a complete key file, so concurrent readers cannot see a partial key.
+            $temporary = $path . '.' . bin2hex(random_bytes(8)) . '.php';
+            $handle = @fopen($temporary, 'x');
+            if ($handle === false) { throw new RuntimeException('Cannot create the notification key. Check write permissions for storage/private.'); }
             $content = "<?php\n// Private encryption key. Back up securely; never commit.\nreturn '" . base64_encode(random_bytes(32)) . "';\n";
-            if (fwrite($handle, $content) !== strlen($content)) { throw new RuntimeException('Could not write the complete encryption key.'); }
-        } finally { fclose($handle); }
-        chmod($path, 0600);
+            try {
+                if (fwrite($handle, $content) !== strlen($content) || !fflush($handle)) { throw new RuntimeException('Could not write the complete notification key.'); }
+            } finally { fclose($handle); }
+            if (!@chmod($temporary, 0600) || !@rename($temporary, $path)) {
+                throw new RuntimeException('Cannot protect or publish the notification key. Check permissions for storage/private.');
+            }
+            $temporary = null;
+        } finally {
+            if ($temporary !== null && is_file($temporary)) { @unlink($temporary); }
+            flock($lock, LOCK_UN); fclose($lock);
+        }
         self::key();
+    }
+
+    /** @return array{ready:bool,message:string} */
+    public static function encryptionStatus(): array
+    {
+        try { self::key(); return ['ready' => true, 'message' => 'Notification encryption is ready.']; }
+        catch (RuntimeException $e) { return ['ready' => false, 'message' => $e->getMessage()]; }
+    }
+
+    private static function assertNoEncryptedCredentials(): void
+    {
+        if (!self::installed()) { throw new RuntimeException('Run php tools/install_staff_settings.php before initializing notification encryption.'); }
+        $count = Database::connection()->query("SELECT COUNT(*) FROM notification_settings WHERE secret_encrypted IS NOT NULL AND secret_encrypted <> ''")->fetchColumn();
+        if ((int) $count > 0) {
+            throw new RuntimeException('The original notification encryption key is missing. Restore storage/private/notification-key.php or the original NOTIFICATION_SETTINGS_KEY. Existing encrypted credentials prevent creation of a replacement key.');
+        }
+    }
+
+    private static function assertEncryptionAvailable(): void
+    {
+        if (!function_exists('openssl_encrypt') || !function_exists('openssl_decrypt') || !function_exists('openssl_get_cipher_methods')) {
+            throw new RuntimeException('PHP OpenSSL encryption is unavailable. Enable the OpenSSL extension for the PHP runtime serving this request; command-line PHP and website PHP may use different configurations.');
+        }
+        if (!in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) {
+            throw new RuntimeException('This PHP OpenSSL installation does not support AES-256-GCM. Ask your host to enable a compatible OpenSSL build.');
+        }
     }
 
     private static function keyPath(): string { return EASYWAY_ROOT . '/storage/private/notification-key.php'; }
 
     private static function key(): string
     {
+        self::assertEncryptionAvailable();
         $encoded = (string) Config::get('NOTIFICATION_SETTINGS_KEY', '');
-        if ($encoded === '' && is_file(self::keyPath())) { $encoded = (string) require self::keyPath(); }
+        $source = 'NOTIFICATION_SETTINGS_KEY';
+        if ($encoded === '') {
+            if (!is_file(self::keyPath())) {
+                throw new RuntimeException('No notification encryption key is configured on this server. First-time setup creates it when you save credentials; otherwise restore the original key or run php tools/install_staff_settings.php.');
+            }
+            if (!is_readable(self::keyPath())) { throw new RuntimeException('The notification key file exists but PHP cannot read it. Check permissions for storage/private/notification-key.php.'); }
+            $source = 'storage/private/notification-key.php';
+            $encoded = (string) require self::keyPath();
+        }
         $key = base64_decode($encoded, true);
-        if ($key === false || strlen($key) !== 32 || !function_exists('openssl_encrypt')) {
-            throw new RuntimeException('Notification encryption is unavailable. Run the installer or restore the original settings key.');
+        if ($key === false || strlen($key) !== 32) {
+            throw new RuntimeException('Invalid notification encryption key in ' . $source . '. It must be a base64-encoded 32-byte key. Restore the original value; do not replace a key used by saved credentials.');
         }
         return $key;
     }
 
     private static function encrypt(string $value, string $channel): string
     {
+        $key = self::key();
         $iv = random_bytes(12); $tag = '';
-        $cipher = openssl_encrypt($value, 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, $iv, $tag, $channel, 16);
+        $cipher = openssl_encrypt($value, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag, $channel, 16);
         if ($cipher === false) { throw new RuntimeException('Cannot protect the notification credential.'); }
         return base64_encode($iv . $tag . $cipher);
     }
@@ -153,7 +214,8 @@ final class NotificationSettings
     {
         $decoded = base64_decode($value, true);
         if ($decoded === false || strlen($decoded) < 29) { throw new RuntimeException('The saved notification credential is invalid.'); }
-        $plain = openssl_decrypt(substr($decoded, 28), 'aes-256-gcm', self::key(), OPENSSL_RAW_DATA, substr($decoded, 0, 12), substr($decoded, 12, 16), $channel);
+        $key = self::key();
+        $plain = openssl_decrypt(substr($decoded, 28), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, substr($decoded, 0, 12), substr($decoded, 12, 16), $channel);
         if ($plain === false) { throw new RuntimeException('The saved credential cannot be decrypted. Restore the original settings key.'); }
         return $plain;
     }

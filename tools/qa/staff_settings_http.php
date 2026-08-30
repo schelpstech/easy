@@ -58,7 +58,10 @@ try {
     $actions = ['staff.account.create', 'staff.password.change', 'staff.notification_settings.save', 'staff.notification_settings.test'];
     foreach ($actions as $action) {
         ensure(request($anonymous, 'controller/router.php?action=' . $action)['status'] === 405, 'GET mutation was allowed.');
-        ensure(request($anonymous, 'controller/router.php?action=' . $action, [])['status'] === 419, 'Missing CSRF token was allowed.');
+        $rejected = request($anonymous, 'controller/router.php?action=' . $action, []);
+        // Some Apache/PHP builds map the application's non-standard 419 to 500.
+        ensure(in_array($rejected['status'], [419, 500], true)
+            && $rejected['body'] === 'Your session expired. Please return to the form and try again.', 'Missing CSRF token was allowed.');
     }
     foreach (['dispatcher', 'rider'] as $role) {
         $handle = $clients[] = client(); login($handle, $emails[$role], $password);
@@ -74,6 +77,9 @@ try {
         $page = request($admin, 'staff/' . $path);
         ensure($page['status'] === 200 && !preg_match('/(?:Fatal error|Warning:|Notice:)/', $page['body']), 'Admin form failed to render.');
         ensure(!str_contains($page['body'], $password), 'A form exposed the account password.');
+        if (str_starts_with($path, 'settings.php')) {
+            ensure(!str_contains($page['body'], 'Credential encryption needs attention.'), 'The website PHP runtime cannot load notification encryption.');
+        }
     }
     $csrf = token(request($admin, 'staff/accounts.php'));
     $fields = ['_token' => $csrf, 'full_name' => 'HTTP Created QA', 'email' => $emails['created'], 'role' => 'dispatcher',

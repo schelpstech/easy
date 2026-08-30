@@ -7,3 +7,5 @@ storage/sessions/*
 storage/proof-of-delivery/*
 storage/private/*
 database
+tools
+.gitignore

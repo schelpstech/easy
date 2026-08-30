@@ -9,6 +9,7 @@ Auth::requireRole(['admin']);
 $channel = Validator::choice($_GET['channel'] ?? 'email', NotificationSettings::CHANNELS, 'email');
 $settings = NotificationSettings::get($channel);
 $installed = NotificationSettings::installed();
+$encryption = NotificationSettings::encryptionStatus();
 $pending = Database::connection()->prepare('SELECT COUNT(*) FROM notification_outbox WHERE channel=:channel AND status="pending"');
 $pending->execute(['channel' => $channel]); $pendingCount = (int) $pending->fetchColumn();
 $staffTitle = 'Delivery settings';
@@ -16,6 +17,7 @@ require __DIR__ . '/_header.php';
 ?>
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4"><div><h2 class="h4 mb-1">Customer communication</h2><p class="text-muted mb-0">Configure a channel, save it, then send a test to a number or inbox you control.</p></div><a class="staff-btn light" href="<?= e(url('staff/notifications.php')) ?>">View notification outbox</a></div>
 <?php if (!$installed): ?><div class="alert alert-warning">Run <code>php tools/install_staff_settings.php</code> once before saving provider settings. Current environment configuration continues to work.</div><?php endif; ?>
+<?php if (!$encryption['ready']): ?><div class="alert alert-warning" role="alert"><strong>Credential encryption needs attention.</strong> <?= e($encryption['message']) ?> No existing key will be replaced automatically.</div><?php endif; ?>
 <nav class="settings-tabs mb-4" aria-label="Notification channels"><?php foreach (['email' => 'Email', 'sms' => 'SMS', 'whatsapp' => 'WhatsApp'] as $key => $label): ?><a class="<?= $channel === $key ? 'active' : '' ?>" <?= $channel === $key ? 'aria-current="page"' : '' ?> href="<?= e(url('staff/settings.php?channel=' . $key)) ?>"><?= e($label) ?></a><?php endforeach; ?></nav>
 <div class="row g-4"><div class="col-xl-7"><section class="staff-card">
     <div class="d-flex align-items-center justify-content-between gap-3 mb-3"><h2 class="h4 mb-0"><?= e($channel === 'email' ? 'Email transport' : ($channel === 'sms' ? 'SMS adapter' : 'WhatsApp adapter')) ?></h2><span class="staff-badge <?= $settings['enabled'] ? '' : 'neutral' ?>"><?= $settings['enabled'] ? 'Enabled' : 'Disabled' ?></span></div>
