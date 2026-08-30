@@ -14,6 +14,7 @@ use App\CustomerAuth;
 use App\Csrf;
 use App\Flash;
 use App\InquiryService;
+use App\InquiryInboxService;
 use App\PaymentService;
 use App\PricingService;
 use App\ProofOfDeliveryService;
@@ -89,6 +90,30 @@ try {
             }
             Flash::set('danger', 'The sign-in details are incorrect or temporarily locked.');
             redirect('staff/login.php');
+
+        case 'staff.inquiry.reply':
+        case 'staff.inquiry.quotation':
+        case 'staff.inquiry.note':
+        case 'staff.inquiry.status':
+            require_post(); require_csrf(); Auth::requireRole(['admin','dispatcher']);
+            $type = Validator::choice($_POST['type'] ?? '', InquiryInboxService::TYPES);
+            $inquiryId = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($type === '' || $inquiryId === false) { throw new RuntimeException('Inquiry not found.'); }
+            $kind = substr($action, strlen('staff.inquiry.'));
+            $draft = ['kind' => $kind];
+            foreach (['subject' => 141, 'body' => 6001, 'note' => 6001, 'amount' => 30, 'currency' => 3, 'terms' => 6001] as $field => $maxLength) {
+                if (isset($_POST[$field])) { $draft[$field] = Validator::text($_POST[$field], $maxLength); }
+            }
+            store_form_state('inquiry_' . $type . '_' . $inquiryId, $draft, []);
+            InquiryInboxService::act($type, (int) $inquiryId, $kind, $_POST);
+            pull_form_state('inquiry_' . $type . '_' . $inquiryId);
+            Flash::set('success', match ($kind) {
+                'reply' => 'Email reply recorded. See its delivery status in the history.',
+                'quotation' => 'Quotation recorded. The exact amount and terms are saved in the history with its email delivery status.',
+                'note' => 'Internal note saved. It was not sent to the customer.',
+                default => 'Inquiry status updated.',
+            });
+            redirect('staff/inquiry.php?type=' . $type . '&id=' . (int) $inquiryId);
 
         case 'staff.account.create':
             require_post(); require_csrf(); Auth::requireRole(['admin']);
@@ -570,6 +595,11 @@ try {
     Flash::set('danger', $exception instanceof RuntimeException ? $exception->getMessage() : 'We could not complete that request. Please try again.');
     if (str_starts_with($action, 'staff.')) {
         if (Auth::check()) {
+            if (str_starts_with($action, 'staff.inquiry.')) {
+                $type = Validator::choice($_POST['type'] ?? '', InquiryInboxService::TYPES);
+                $inquiryId = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+                redirect($type !== '' && $inquiryId !== false ? 'staff/inquiry.php?type=' . $type . '&id=' . (int) $inquiryId : 'staff/inquiries.php');
+            }
             if ($action === 'staff.account.create') { redirect('staff/accounts.php'); }
             if ($action === 'staff.password.change') { redirect('staff/password.php'); }
             if (str_starts_with($action, 'staff.notification_settings.')) {

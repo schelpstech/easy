@@ -54,6 +54,7 @@ final class NotificationTransport
     {
         $channel = (string) $notification['channel'];
         NotificationSettings::validate($channel, $settings);
+        self::assertRuntimeAvailable($channel, $settings);
         if ($channel === 'email') { self::email($notification, $settings); return; }
         $parts = self::validateWebhookUrl((string) $settings['url']);
         $handle = self::handle((string) $settings['url'], (string) $parts['host'], 443);
@@ -71,6 +72,28 @@ final class NotificationTransport
                 throw new RuntimeException('Messaging adapter did not accept the request (HTTP ' . $status . ', transport code ' . curl_errno($handle) . '). Check endpoint and credentials.');
             }
         } finally { curl_close($handle); }
+    }
+
+    /** Check PHP capabilities only. Does not connect to a provider or send a message. */
+    public static function assertRuntimeAvailable(string $channel, array $settings): void
+    {
+        if ($channel === 'email' && ($settings['transport'] ?? '') === 'mail') {
+            if (!function_exists('mail')) {
+                throw new RuntimeException('Server mail is selected, but PHP mail() is disabled or unavailable in this runtime. In Delivery Settings > Email, select Authenticated SMTP, save your SMTP settings and send a test. SMTP fields are ignored while Server mail is selected.');
+            }
+            return;
+        }
+        if (!function_exists('curl_init') || !function_exists('curl_version')) {
+            throw new RuntimeException('PHP cURL is unavailable in this runtime. Enable it for the PHP executable used by cron as well as website PHP.');
+        }
+        $protocol = $channel === 'email' ? (($settings['encryption'] ?? '') === 'tls' ? 'smtps' : 'smtp') : 'https';
+        $version = curl_version();
+        if (!in_array($protocol, $version['protocols'] ?? [], true)) {
+            throw new RuntimeException('This PHP cURL build does not support ' . strtoupper($protocol) . '. Ask your host to enable it for the PHP executable used by cron.');
+        }
+        if (((int) ($version['features'] ?? 0) & CURL_VERSION_SSL) === 0) {
+            throw new RuntimeException('PHP cURL TLS support is unavailable in this runtime. Ask your host to enable a TLS-capable cURL build.');
+        }
     }
 
     private static function handle(string $url, string $host, int $port): \CurlHandle

@@ -36,7 +36,7 @@ $staffCurrent = basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'index.php'));
             <a class="<?= $staffCurrent === 'reports.php' ? 'active' : '' ?>" href="<?= e(url('staff/reports.php')) ?>"><i class="bi bi-bar-chart"></i> Reports</a>
             <?php if (($staffUser['role'] ?? '') === 'admin'): ?><a class="<?= $staffCurrent === 'rates.php' ? 'active' : '' ?>" href="<?= e(url('staff/rates.php')) ?>"><i class="bi bi-calculator"></i> Rates</a><?php endif; ?>
             <a class="<?= $staffCurrent === 'notifications.php' ? 'active' : '' ?>" href="<?= e(url('staff/notifications.php')) ?>"><i class="bi bi-bell"></i> Notifications</a>
-            <a class="<?= $staffCurrent === 'inquiries.php' ? 'active' : '' ?>" href="<?= e(url('staff/inquiries.php')) ?>"><i class="bi bi-inbox"></i> Quotes & Messages</a>
+            <a class="<?= in_array($staffCurrent, ['inquiries.php','inquiry.php'], true) ? 'active' : '' ?>" href="<?= e(url('staff/inquiries.php')) ?>"><i class="bi bi-inbox"></i> Quotes & Messages</a>
             <?php if (($staffUser['role'] ?? '') === 'admin'): ?>
             <a class="<?= $staffCurrent === 'accounts.php' ? 'active' : '' ?>" href="<?= e(url('staff/accounts.php')) ?>"><i class="bi bi-people"></i> Staff Accounts</a>
             <a class="<?= $staffCurrent === 'settings.php' ? 'active' : '' ?>" href="<?= e(url('staff/settings.php')) ?>"><i class="bi bi-sliders"></i> Delivery Settings</a>

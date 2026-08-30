@@ -9,3 +9,11 @@ storage/private/*
 database
 tools
 .gitignore
+# Include the actionable-inbox installer and focused QA in deployments.
+!tools/
+tools/*
+!tools/install_inquiry_inbox.php
+!tools/qa/
+tools/qa/*
+!tools/qa/inquiry_inbox_smoke.php
+!tools/qa/inquiry_inbox_http.php

@@ -60,14 +60,38 @@ final class NotificationService
     public static function dispatchPending(int $limit = 50): array
     {
         $pdo = Database::connection();
+        // Serialize cron workers for this database so overlapping schedules do not
+        // select and send the same pending emails at the same time.
+        $lockName = 'easyway-notifications-' . substr(hash('sha256', (string) $pdo->query('SELECT DATABASE()')->fetchColumn()), 0, 24);
+        $lock = $pdo->prepare('SELECT GET_LOCK(:name,0)'); $lock->execute(['name' => $lockName]);
+        $acquired = $lock->fetchColumn();
+        if ($acquired === null || $acquired === false) { throw new \RuntimeException('The notification worker lock is unavailable. No messages were sent.'); }
+        if ((int) $acquired !== 1) { return ['sent' => 0, 'failed' => 0, 'waiting' => 0]; }
+        try { return self::dispatchReady($limit); }
+        finally { $pdo->prepare('SELECT RELEASE_LOCK(:name)')->execute(['name' => $lockName]); }
+    }
+
+    private static function dispatchReady(int $limit): array
+    {
+        $pdo = Database::connection();
+        $enabledChannels = array_values(array_filter(NotificationSettings::CHANNELS, static fn(string $channel): bool => self::channelEnabled($channel)));
+        $due = 'status = "pending" AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())';
+        if ($enabledChannels === []) {
+            return ['sent' => 0, 'failed' => 0, 'waiting' => (int) $pdo->query('SELECT COUNT(*) FROM notification_outbox WHERE ' . $due)->fetchColumn()];
+        }
+        $placeholders = implode(',', array_fill(0, count($enabledChannels), '?'));
+        $waiting = $pdo->prepare('SELECT COUNT(*) FROM notification_outbox WHERE ' . $due . ' AND channel NOT IN (' . $placeholders . ')');
+        $waiting->execute($enabledChannels);
+        // Apply the enabled-channel filter before the limit: disabled SMS/WhatsApp
+        // backlog must not starve newer email replies.
         $statement = $pdo->prepare(
-            'SELECT * FROM notification_outbox
-             WHERE status = "pending" AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
-             ORDER BY created_at LIMIT :limit'
+            'SELECT * FROM notification_outbox WHERE ' . $due . ' AND channel IN (' . $placeholders . ')
+             ORDER BY created_at,id LIMIT ?'
         );
-        $statement->bindValue('limit', max(1, min(100, $limit)), PDO::PARAM_INT);
+        foreach ($enabledChannels as $index => $channel) { $statement->bindValue($index + 1, $channel, PDO::PARAM_STR); }
+        $statement->bindValue(count($enabledChannels) + 1, max(1, min(100, $limit)), PDO::PARAM_INT);
         $statement->execute();
-        $result = ['sent' => 0, 'failed' => 0, 'waiting' => 0];
+        $result = ['sent' => 0, 'failed' => 0, 'waiting' => (int) $waiting->fetchColumn()];
         foreach ($statement->fetchAll() as $notification) {
             $enabled = self::channelEnabled((string) $notification['channel']);
             if (!$enabled) {
@@ -150,6 +174,10 @@ final class NotificationService
     /** @param array<string, mixed> $notification */
     private static function deliver(array $notification): void
     {
-        NotificationTransport::send($notification, NotificationSettings::get((string) $notification['channel'], true));
+        $settings = NotificationSettings::get((string) $notification['channel'], true);
+        if (in_array($notification['template_code'], ['inquiry_reply','inquiry_quotation'], true) && ($settings['transport'] ?? '') !== 'smtp') {
+            throw new \RuntimeException('Inquiry email requires Authenticated SMTP. Restore the SMTP configuration in Delivery Settings.');
+        }
+        NotificationTransport::send($notification, $settings);
     }
 }
