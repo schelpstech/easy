@@ -1595,8 +1595,11 @@ $homeContactState = pull_form_state('contact');
                                 <a href="<?= e(url('index.php')) ?>"><img src="assets/img/easyway/logo.jpg" alt="Easyway Logistics"></a>
                             </div>
                             <p>Easyway Logistics, <?= e(company_address()) ?>. Fast &amp; reliable delivery nationwide and abroad.</p>
-                            <ul class="social-list">
-                                <li><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="bx bxl-whatsapp"></i></a></li>
+                            <ul class="social-list" aria-label="Easyway Logistics social media">
+                                <li><a href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"><i class="bi bi-whatsapp" aria-hidden="true"></i></a></li>
+                                <?php foreach (social_media_links() as $homepageSocial): ?>
+                                <li><a href="<?= e($homepageSocial['url']) ?>" target="_blank" rel="noopener noreferrer" aria-label="<?= e('Easyway Logistics on ' . $homepageSocial['name'] . ' (opens in a new tab)') ?>" title="<?= e($homepageSocial['name']) ?>"><i class="bi <?= e($homepageSocial['icon']) ?>" aria-hidden="true"></i></a></li>
+                                <?php endforeach; ?>
                             </ul>
                         </div>
                     </div>

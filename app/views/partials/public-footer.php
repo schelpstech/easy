@@ -8,6 +8,7 @@
                 <p>Careful handling, clear communication and dependable delivery support for individuals and businesses.</p>
                 <p><i class="bi bi-geo-alt"></i> <?= e(company_address()) ?></p>
                 <a class="stage1-inline-link" href="<?= e(whatsapp_url()) ?>" target="_blank" rel="noopener noreferrer"><i class="bi bi-whatsapp"></i> Chat with our team</a>
+                <?php require __DIR__ . '/social-links.php'; ?>
             </div>
             <div class="col-6 col-lg-2">
                 <h2>Company</h2>

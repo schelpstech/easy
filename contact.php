@@ -41,6 +41,13 @@ require __DIR__ . '/app/views/partials/public-header.php';
                     <div class="contact-row"><i class="bi bi-geo-alt"></i>
                         <div><strong>Location</strong><br><?= e(company_address()) ?></div>
                     </div>
+                    <?php if (social_media_links() !== []): ?>
+                    <div class="contact-social">
+                        <h3>Follow Easyway</h3>
+                        <p>Connect with us on social media.</p>
+                        <?php require __DIR__ . '/app/views/partials/social-links.php'; ?>
+                    </div>
+                    <?php endif; ?>
                 </aside>
             </div>
             <div class="col-lg-7">

@@ -113,10 +113,12 @@ final class NotificationTransport
     {
         $to = (string) $notification['recipient'];
         if (!filter_var($to, FILTER_VALIDATE_EMAIL) || preg_match('/[\r\n\x00]/', $to)) { throw new RuntimeException('The notification email address is invalid.'); }
-        $subject = '=?UTF-8?B?' . base64_encode((string) ($notification['subject'] ?: 'Easyway Logistics update')) . '?=';
-        $from = '=?UTF-8?B?' . base64_encode($settings['from_name']) . '?= <' . $settings['from_email'] . '>';
-        $headers = ['MIME-Version: 1.0', 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', 'From: ' . $from];
-        $body = chunk_split(base64_encode((string) $notification['message']), 76, "\r\n");
+        $email = EmailTemplate::compose($notification);
+        $subject = $email['subject'];
+        $from = EmailTemplate::encodeHeader($settings['from_name']) . "\r\n <" . $settings['from_email'] . '>';
+        // Keep replies in the configured sender mailbox, including staff inquiry replies.
+        $headers = array_merge($email['headers'], ['From: ' . $from, 'Reply-To: <' . $settings['from_email'] . '>']);
+        $body = $email['body'];
         if ($settings['transport'] === 'mail') {
             if (!@mail($to, $subject, $body, implode("\r\n", $headers))) { throw new RuntimeException('Server mail did not accept the notification. Configure SMTP or contact your hosting provider.'); }
             return;

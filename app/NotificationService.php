@@ -166,7 +166,7 @@ final class NotificationService
         }
         // Only this fixed test is sent; pending customer notifications are never processed here.
         NotificationTransport::send(['id' => 'TEST-' . bin2hex(random_bytes(8)), 'channel' => $channel,
-            'recipient' => $recipient, 'subject' => 'Easyway notification test',
+            'recipient' => $recipient, 'subject' => 'Easyway notification test', 'template_code' => 'notification_test',
             'message' => 'This is a test message from Easyway Logistics. No shipment or payment action is required.'], NotificationSettings::get($channel, true));
         AuditService::record('notifications.test_accepted', 'notification_settings', null, ['channel' => $channel]);
     }

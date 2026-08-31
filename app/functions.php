@@ -179,6 +179,24 @@ function support_email(): string
     return (string) Config::get('SUPPORT_EMAIL', 'support@easyway.ng');
 }
 
+/** @return list<array{name:string,url:string,icon:string}> */
+function social_media_links(): array
+{
+    $links = [];
+    foreach ([
+        ['TIKTOK_URL', 'TikTok', 'https://www.tiktok.com/@easyway_logistics_?_r=1&_t=ZS-99KHmZfBk4D', 'bi-tiktok'],
+        ['INSTAGRAM_URL', 'Instagram', 'https://www.instagram.com/easywaylogistics', 'bi-instagram'],
+        ['FACEBOOK_URL', 'Facebook', 'https://www.facebook.com/share/19PjTGGdLC/', 'bi-facebook'],
+    ] as [$key, $name, $default, $icon]) {
+        $link = trim((string) Config::get($key, $default));
+        if ($link === '' || filter_var($link, FILTER_VALIDATE_URL) === false || strtolower((string) parse_url($link, PHP_URL_SCHEME)) !== 'https') {
+            continue;
+        }
+        $links[] = ['name' => $name, 'url' => $link, 'icon' => $icon];
+    }
+    return $links;
+}
+
 function whatsapp_url(string $message = 'Hello Easyway Logistics, I would like to make an enquiry.'): string
 {
     $number = preg_replace('/\D+/', '', (string) Config::get('WHATSAPP_NUMBER', '2349031134210'));

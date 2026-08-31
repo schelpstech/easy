@@ -20,3 +20,7 @@ tools/qa/*
 !tools/install_rate_management.php
 !tools/qa/rate_management_smoke.php
 !tools/qa/rate_management_http.php
+!tools/qa/social_links_smoke.php
+!tools/qa/email_branding_smoke.php
+.env.example
+
