@@ -22,5 +22,7 @@ tools/qa/*
 !tools/qa/rate_management_http.php
 !tools/qa/social_links_smoke.php
 !tools/qa/email_branding_smoke.php
+!tools/qa/inquiry_alerts_smoke.php
+!tools/qa/inquiry_alerts_http.php
+!tools/qa/stage1_smoke.php
 .env.example
-

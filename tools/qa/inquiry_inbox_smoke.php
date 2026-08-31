@@ -40,6 +40,8 @@ namespace {
         $contactId = (int) $pdo->query('SELECT MAX(id) FROM contact_messages')->fetchColumn();
         $quoteRef = InquiryService::createQuote(['full_name' => 'Daniel Inbox QA ' . $suffix, 'email' => 'quote-' . $suffix . '@example.test', 'phone' => '+2348087137894', 'shipment_type' => 'International', 'from_location' => 'Lagos', 'to_location' => 'London', 'weight_range' => '6kg - 15kg', 'quantity' => 2, 'delivery_type' => 'Express Delivery', 'notes' => 'Two cartons of sample clothing. Please confirm estimated transit time.']);
         $quoteId = (int) $pdo->query('SELECT MAX(id) FROM quote_requests')->fetchColumn();
+        $outboxAfterSubmissions = (int) $pdo->query('SELECT COUNT(*) FROM notification_outbox')->fetchColumn();
+        check($outboxAfterSubmissions === $before['notification_outbox'] + 2, 'New inquiries did not queue exactly two staff alerts.');
         $note = 'Private QA note <script>alert("not-executable")</script> — confirm collection with dispatch.';
         $noteForm = form('contact', $contactId, ['note' => $note]);
         $noteId = Inbox::act('contact', $contactId, 'note', $noteForm);
@@ -48,7 +50,7 @@ namespace {
         rejects(fn() => Inbox::act('contact', $contactId, 'status', ['revision' => 0, 'request_token' => bin2hex(random_bytes(32)), 'status' => 'closed']), 'Stale form overwrote a newer activity.');
         rejects(fn() => Inbox::act('contact', $contactId, 'status', form('contact', $contactId, ['status' => 'quoted'])), 'Quote-only status accepted on contact.');
         rejects(fn() => Inbox::act('contact', $contactId, 'quotation', form('contact', $contactId)), 'Contact received a quotation action.');
-        check((int) $pdo->query('SELECT COUNT(*) FROM notification_outbox')->fetchColumn() === $before['notification_outbox'], 'A private note sent an email.');
+        check((int) $pdo->query('SELECT COUNT(*) FROM notification_outbox')->fetchColumn() === $outboxAfterSubmissions, 'A private note sent an email.');
         check(Auth::attempt($emails['rider'], $password), 'Rider sign-in failed.');
         rejects(fn() => Inbox::find('contact', $contactId), 'Rider can read private inquiry.');
         rejects(fn() => Inbox::listing('quote'), 'Rider can read inbox.');

@@ -43,6 +43,9 @@ $before = [];
 foreach (['staff_users','contact_messages','quote_requests','inquiry_activities','notification_outbox','bookings','billing_documents'] as $table) { $before[$table] = (int) $pdo->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn(); }
 $settingsBefore = $pdo->query('SELECT * FROM notification_settings ORDER BY channel')->fetchAll();
 $suffix = bin2hex(random_bytes(6)); $password = 'Inbox-HTTP-QA-' . bin2hex(random_bytes(12));
+$oldAlertEmail = getenv('INQUIRY_ALERT_EMAIL');
+$alertEmail = 'inbox-alert-' . $suffix . '@example.test';
+putenv('INQUIRY_ALERT_EMAIL=' . $alertEmail);
 $emails = []; $inquiries = []; $clients = [];
 try {
     foreach (['admin','dispatcher','rider'] as $role) {
@@ -105,6 +108,10 @@ try {
 } finally {
     foreach ($clients as $handle) { curl_close($handle); }
     foreach ($inquiries as $type => $id) {
+        $source = $pdo->prepare('SELECT reference FROM ' . ($type === 'quote' ? 'quote_requests' : 'contact_messages') . ' WHERE id=:id');
+        $source->execute(['id' => $id]); $reference = $source->fetchColumn();
+        $pdo->prepare('DELETE FROM notification_outbox WHERE template_code=:template AND subject=:subject AND recipient=:recipient')->execute([
+            'template' => 'staff_' . $type . '_received', 'subject' => '[' . $reference . '] ' . ($type === 'quote' ? 'New quote request' : 'New contact inquiry'), 'recipient' => $alertEmail]);
         $query = $pdo->prepare('SELECT notification_id FROM inquiry_activities WHERE inquiry_type=:type AND inquiry_id=:id AND notification_id IS NOT NULL'); $query->execute(['type' => $type, 'id' => $id]); $notifications = $query->fetchAll(PDO::FETCH_COLUMN);
         $pdo->prepare('DELETE FROM inquiry_activities WHERE inquiry_type=:type AND inquiry_id=:id')->execute(['type' => $type, 'id' => $id]);
         foreach ($notifications as $notificationId) { $pdo->prepare('DELETE FROM notification_outbox WHERE id=:id')->execute(['id' => $notificationId]); }
@@ -116,6 +123,7 @@ try {
         foreach ($query->fetchAll(PDO::FETCH_COLUMN) as $id) { $pdo->prepare('DELETE FROM audit_logs WHERE staff_user_id=:id')->execute(['id' => $id]); $pdo->prepare('DELETE FROM staff_users WHERE id=:id')->execute(['id' => $id]); }
         $pdo->prepare('DELETE FROM login_attempts WHERE email=:email')->execute(['email' => $email]);
     }
+    putenv($oldAlertEmail === false ? 'INQUIRY_ALERT_EMAIL' : 'INQUIRY_ALERT_EMAIL=' . $oldAlertEmail);
 }
 foreach ($before as $table => $count) { check((int) $pdo->query('SELECT COUNT(*) FROM ' . $table)->fetchColumn() === $count, 'QA data remained in ' . $table); }
 check($settingsBefore === $pdo->query('SELECT * FROM notification_settings ORDER BY channel')->fetchAll(), 'Provider settings changed.');

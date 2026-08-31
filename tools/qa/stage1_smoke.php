@@ -20,6 +20,9 @@ $staffId = null;
 $shipmentId = null;
 $contactId = null;
 $quoteId = null;
+$oldAlertEmail = getenv('INQUIRY_ALERT_EMAIL');
+$alertEmail = 'stage1-alert-' . strtolower($suffix) . '@example.test';
+putenv('INQUIRY_ALERT_EMAIL=' . $alertEmail);
 
 function qa_assert(bool $condition, string $message): void
 {
@@ -125,6 +128,12 @@ try {
     echo "PASS tracking_number={$trackingNumber}\n";
     echo "PASS status_transition_and_public_timeline\n";
 } finally {
+    foreach (['contact' => $contactReference ?? null, 'quote' => $quoteReference ?? null] as $type => $reference) {
+        if ($reference !== null) {
+            $pdo->prepare('DELETE FROM notification_outbox WHERE template_code=:template AND subject=:subject AND recipient=:recipient')->execute([
+                'template' => 'staff_' . $type . '_received', 'subject' => '[' . $reference . '] ' . ($type === 'quote' ? 'New quote request' : 'New contact inquiry'), 'recipient' => $alertEmail]);
+        }
+    }
     if ($shipmentId !== null) {
         $pdo->prepare('DELETE FROM notification_outbox WHERE shipment_id = :id')->execute(['id' => $shipmentId]);
         $pdo->prepare("DELETE FROM audit_logs WHERE entity_type = 'shipment' AND entity_id = :id")->execute(['id' => $shipmentId]);
@@ -142,4 +151,5 @@ try {
         $pdo->prepare('DELETE FROM login_attempts WHERE email = :email')->execute(['email' => $email]);
         $pdo->prepare('DELETE FROM staff_users WHERE id = :id')->execute(['id' => $staffId]);
     }
+    putenv($oldAlertEmail === false ? 'INQUIRY_ALERT_EMAIL' : 'INQUIRY_ALERT_EMAIL=' . $oldAlertEmail);
 }

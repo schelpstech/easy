@@ -16,6 +16,7 @@ final class EmailTemplate
         $subject = $subject !== '' ? $subject : 'Easyway Logistics update';
         $message = str_replace(["\r\n", "\r"], "\n", (string) ($notification['message'] ?? ''));
         $template = (string) ($notification['template_code'] ?? '');
+        $staffAlert = in_array($template, ['staff_quote_received', 'staff_contact_received'], true);
         $label = match ($template) {
             'booking_created' => 'Booking confirmation',
             'corporate_booking_confirmed' => 'Corporate booking',
@@ -27,10 +28,13 @@ final class EmailTemplate
             'inquiry_reply' => 'A message from our team',
             'inquiry_quotation' => 'Your quotation',
             'notification_test' => 'Email delivery test',
+            'staff_quote_received' => 'Staff alert · New quote request',
+            'staff_contact_received' => 'Staff alert · New inquiry',
             default => 'Customer update',
         };
         $reason = match ($template) {
             'notification_test' => 'This is a delivery test requested by the Easyway team. No action is required.',
+            'staff_quote_received', 'staff_contact_received' => 'Internal notification for the Easyway team. Customer details are confidential; share only with authorized staff.',
             'inquiry_reply', 'inquiry_quotation' => 'You are receiving this email about your inquiry with Easyway Logistics.',
             'booking_created', 'corporate_booking_confirmed', 'payment_received', 'shipment_created' => 'You are receiving this email about your booking with Easyway Logistics.',
             'shipment_status', 'shipment_delivered', 'cargo_status' => 'You are receiving this email about your shipment with Easyway Logistics.',
@@ -60,9 +64,9 @@ final class EmailTemplate
             ob_end_clean();
         }
 
-        $text = "EASYWAY LOGISTICS\n" . $label . "\n\n" . $subject . "\n\n" . $message
-            . "\n\n" . $action['label'] . ': ' . $action['url']
-            . "\n\nNeed a hand? Contact our team.\nEmail: " . $email;
+        $text = "EASYWAY LOGISTICS\n" . $label . "\n\n" . $subject . "\n\n" . $message;
+        if ($action !== null) { $text .= "\n\n" . $action['label'] . ': ' . $action['url']; }
+        $text .= ($staffAlert ? "\n\nEasyway contact details" : "\n\nNeed a hand? Contact our team.") . "\nEmail: " . $email;
         foreach ($phones as $phone) { $text .= "\nCall: " . $phone; }
         $text .= "\nWhatsApp: " . $whatsapp . "\nVisit: " . $address;
         if ($website !== null) { $text .= "\nWebsite: " . $website; }
@@ -144,9 +148,14 @@ final class EmailTemplate
         return $base . '/' . ltrim($path, '/');
     }
 
-    /** @return array{label:string,url:string} */
-    private static function action(array $notification, string $template): array
+    /** @return array{label:string,url:string}|null */
+    private static function action(array $notification, string $template): ?array
     {
+        if (in_array($template, ['staff_quote_received', 'staff_contact_received'], true)) {
+            $type = $template === 'staff_quote_received' ? 'quote' : 'contact';
+            $target = self::siteUrl('staff/inquiries.php?type=' . $type);
+            return $target === null ? null : ['label' => $type === 'quote' ? 'Open quote inbox' : 'Open message inbox', 'url' => $target];
+        }
         $action = ['label' => 'Chat with our team', 'url' => whatsapp_url()];
         if (in_array($template, ['booking_created', 'corporate_booking_confirmed', 'payment_received', 'shipment_created'], true)) {
             $bookingId = (int) ($notification['booking_id'] ?? 0);

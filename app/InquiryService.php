@@ -12,13 +12,7 @@ final class InquiryService
     public static function createContact(array $data): string
     {
         $reference = self::reference('MSG');
-        $statement = Database::connection()->prepare(
-            'INSERT INTO contact_messages
-                (reference, full_name, company_name, email, phone, subject, message, status, created_at)
-             VALUES
-                (:reference, :full_name, :company_name, :email, :phone, :subject, :message, "new", NOW())'
-        );
-        $statement->execute([
+        self::save('contact', [
             'reference' => $reference,
             'full_name' => $data['full_name'],
             'company_name' => $data['company_name'] ?: null,
@@ -28,7 +22,6 @@ final class InquiryService
             'message' => $data['message'],
         ]);
 
-        AuditService::record('contact.created', 'contact_message', (int) Database::connection()->lastInsertId(), ['reference' => $reference]);
         return $reference;
     }
 
@@ -36,15 +29,7 @@ final class InquiryService
     public static function createQuote(array $data): string
     {
         $reference = self::reference('QT');
-        $statement = Database::connection()->prepare(
-            'INSERT INTO quote_requests
-                (reference, shipment_type, from_location, to_location, weight_range, quantity,
-                 delivery_type, full_name, email, phone, notes, status, created_at)
-             VALUES
-                (:reference, :shipment_type, :from_location, :to_location, :weight_range, :quantity,
-                 :delivery_type, :full_name, :email, :phone, :notes, "new", NOW())'
-        );
-        $statement->execute([
+        self::save('quote', [
             'reference' => $reference,
             'shipment_type' => $data['shipment_type'],
             'from_location' => $data['from_location'],
@@ -58,8 +43,40 @@ final class InquiryService
             'notes' => $data['notes'] ?: null,
         ]);
 
-        AuditService::record('quote.created', 'quote_request', (int) Database::connection()->lastInsertId(), ['reference' => $reference]);
         return $reference;
+    }
+
+    /** Persist the inquiry and its staff alert together; no provider calls during form submission. */
+    private static function save(string $type, array $data): void
+    {
+        [$table, $entity] = match ($type) {
+            'contact' => ['contact_messages', 'contact_message'],
+            'quote' => ['quote_requests', 'quote_request'],
+        };
+        $pdo = Database::connection();
+        $ownsTransaction = !$pdo->inTransaction();
+        $savepoint = 'easyway_inquiry_' . bin2hex(random_bytes(6));
+        if ($ownsTransaction) { $pdo->beginTransaction(); }
+        else { $pdo->exec('SAVEPOINT ' . $savepoint); }
+        try {
+            // Column names come only from the explicit field lists in createContact/createQuote.
+            $columns = array_keys($data);
+            $statement = $pdo->prepare('INSERT INTO ' . $table . ' (' . implode(',', $columns) . ',status,created_at)'
+                . ' VALUES (:' . implode(',:', $columns) . ',"new",NOW())');
+            $statement->execute($data);
+            $id = (int) $pdo->lastInsertId();
+            $notificationId = NotificationService::queueInquiry($type, $data);
+            AuditService::record($type . '.created', $entity, $id, ['reference' => $data['reference'], 'notification_id' => $notificationId]);
+            if ($ownsTransaction) { $pdo->commit(); }
+            else { $pdo->exec('RELEASE SAVEPOINT ' . $savepoint); }
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                if ($ownsTransaction) { $pdo->rollBack(); }
+                else { $pdo->exec('ROLLBACK TO SAVEPOINT ' . $savepoint); $pdo->exec('RELEASE SAVEPOINT ' . $savepoint); }
+            }
+            error_log('Easyway inquiry save failed: ' . $exception->getMessage());
+            throw new \RuntimeException('We could not save your request. Please try again or contact our team directly.', 0, $exception);
+        }
     }
 
     /** @return array<int, array<string, mixed>> */
@@ -89,4 +106,3 @@ final class InquiryService
         return sprintf('%s-%s-%s', $prefix, date('Ym'), strtoupper(bin2hex(random_bytes(3))));
     }
 }
-

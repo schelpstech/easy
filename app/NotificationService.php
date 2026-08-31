@@ -9,6 +9,40 @@ use Throwable;
 
 final class NotificationService
 {
+    /** Called once inside the new inquiry's transaction. The recipient is never taken from a public form. */
+    public static function queueInquiry(string $type, array $inquiry): int
+    {
+        $title = match ($type) {
+            'quote' => 'New quote request',
+            'contact' => 'New contact inquiry',
+            default => throw new \RuntimeException('Unknown inquiry alert type.'),
+        };
+        $recipient = trim((string) Config::get('INQUIRY_ALERT_EMAIL', 'info@easyway.ng'));
+        if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || strlen($recipient) > 190 || preg_match('/[\r\n\x00]/', $recipient)) {
+            throw new \RuntimeException('INQUIRY_ALERT_EMAIL must contain one valid staff email address.');
+        }
+        $subject = '[' . $inquiry['reference'] . '] ' . $title;
+        $body = ($type === 'quote' ? 'A new quotation request has been submitted on the Easyway website.' : 'A new contact inquiry has been submitted on the Easyway website.')
+            . "\n\nReference: " . $inquiry['reference'] . "\nReceived: " . date('j M Y, g:i A T')
+            . "\n\nCustomer: " . $inquiry['full_name'] . "\nEmail: " . $inquiry['email']
+            . "\nPhone: " . ($inquiry['phone'] ?: 'Not provided');
+        if ($type === 'quote') {
+            $body .= "\n\nShipment type: " . $inquiry['shipment_type'] . "\nOrigin: " . $inquiry['from_location']
+                . "\nDestination: " . $inquiry['to_location'] . "\nWeight range: " . $inquiry['weight_range']
+                . "\nQuantity: " . $inquiry['quantity'] . "\nService: " . $inquiry['delivery_type']
+                . "\n\nCustomer notes:\n" . ($inquiry['notes'] ?: 'No additional notes provided.');
+        } else {
+            $body .= "\nCompany: " . ($inquiry['company_name'] ?: 'Not provided')
+                . "\n\nSubject: " . $inquiry['subject'] . "\n\nCustomer message:\n" . $inquiry['message'];
+        }
+        $body .= "\n\nOpen Quotes & Messages in the staff portal and find the reference above to reply, send a quotation or record follow-up."
+            . "\nThis is an internal alert, not a reply to the customer. Customer-provided details have not been verified.";
+        $statement = Database::connection()->prepare('INSERT INTO notification_outbox'
+            . ' (channel,recipient,template_code,subject,message,status,attempts) VALUES ("email",:recipient,:template,:subject,:message,"pending",0)');
+        $statement->execute(['recipient' => $recipient, 'template' => 'staff_' . $type . '_received', 'subject' => $subject, 'message' => $body]);
+        return (int) Database::connection()->lastInsertId();
+    }
+
     public static function queueBooking(int $bookingId, string $template, string $subject, string $message): void
     {
         try {

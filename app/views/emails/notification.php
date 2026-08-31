@@ -29,15 +29,17 @@
                     <?php foreach ($paragraphs as $paragraph): ?>
                         <p style="margin:0 0 18px;color:#263d50;font-size:15px;line-height:25px;overflow-wrap:anywhere;word-wrap:break-word;"><?= nl2br(e($paragraph), false) ?></p>
                     <?php endforeach; ?>
+                    <?php if ($action !== null): ?>
                     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;border-collapse:separate;">
                         <tr><td align="center" bgcolor="#f59b20" style="border-radius:6px;mso-padding-alt:14px 22px;">
                             <a href="<?= e($action['url']) ?>" style="display:inline-block;padding:14px 22px;border:1px solid #f59b20;border-radius:6px;color:#102f43;font-size:14px;line-height:20px;font-weight:700;text-decoration:none;text-align:center;mso-padding-alt:0;"><?= e($action['label']) ?> &rarr;</a>
                         </td></tr>
                     </table>
+                    <?php endif; ?>
                 </td></tr>
                 <tr><td style="padding:26px 28px;background-color:#f6f8fa;border-top:1px solid #e0e7ed;overflow-wrap:anywhere;word-wrap:break-word;">
-                    <h2 style="margin:0 0 6px;color:#063f59;font-size:17px;line-height:24px;font-weight:700;">Need a hand?</h2>
-                    <p style="margin:0 0 18px;color:#536b7c;font-size:13px;line-height:21px;">Our team is here to help with your delivery.</p>
+                    <h2 style="margin:0 0 6px;color:#063f59;font-size:17px;line-height:24px;font-weight:700;"><?= $staffAlert ? 'Easyway contact details' : 'Need a hand?' ?></h2>
+                    <p style="margin:0 0 18px;color:#536b7c;font-size:13px;line-height:21px;"><?= $staffAlert ? 'For the Easyway operations team.' : 'Our team is here to help with your delivery.' ?></p>
                     <p style="margin:0 0 10px;color:#263d50;font-size:13px;line-height:23px;">
                         <?php if ($emailLink !== null): ?><a href="<?= e($emailLink) ?>" style="color:#063f59;text-decoration:underline;"><?= e($email) ?></a><?php else: ?><?= e($email) ?><?php endif; ?><br>
                         <?php foreach ($phones as $phone): ?>
